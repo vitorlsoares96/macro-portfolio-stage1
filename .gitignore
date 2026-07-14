@@ -1,0 +1,10 @@
+# Nunca subir credenciais para o GitHub — o .env guarda sua chave pessoal da API do FRED
+.env
+
+# Arquivos gerados pelo Python ao rodar (cache de bytecode compilado)
+__pycache__/
+*.pyc
+
+# Ambiente virtual, caso você crie um localmente
+venv/
+.venv/

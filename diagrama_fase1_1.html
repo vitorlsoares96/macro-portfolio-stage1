@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Fase 1 — Do indicador à ação: mapa do pipeline</title>
+<style>
+  :root {
+    --surface-1: #fcfcfb;
+    --page: #f4f3f0;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --muted: #898781;
+    --border: rgba(11,11,11,0.12);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 28px;
+    background: var(--page);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--text-primary);
+  }
+  h1 {
+    font-size: 21px;
+    margin: 0 0 4px 0;
+  }
+  .subtitle {
+    color: var(--text-secondary);
+    font-size: 13.5px;
+    margin: 0 0 20px 0;
+    max-width: 900px;
+    line-height: 1.5;
+  }
+  .canvas-wrap {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: auto;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .canvas {
+    position: relative;
+    width: 1770px;
+    height: 804px;
+  }
+  svg.edges {
+    position: absolute; left: 0; top: 0;
+    width: 1770px; height: 804px;
+    pointer-events: none;
+  }
+  .col-title {
+    position: absolute;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+  .group-header {
+    position: absolute;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    height: 20px;
+  }
+  .swatch {
+    display: inline-block;
+    width: 9px; height: 9px;
+    border-radius: 2px;
+    margin-right: 6px;
+  }
+  .node {
+    position: absolute;
+    background: #ffffff;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 9px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .node-ind { border-left-width: 4px; cursor: default; overflow: visible; }
+  .node-agg { border-left-width: 5px; }
+  .node-sintese { border-left-width: 5px; background: #fbfbfa; }
+  .node-classe { border: none; border-radius: 6px; justify-content: center; align-items: center; }
+  .node-label {
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+  .node-label-white { color: #fff; font-size: 13px; text-align: center; }
+  .node-sub {
+    font-size: 10.5px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+    line-height: 1.2;
+  }
+  .node-ind .tooltip {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: 100%;
+    margin-top: 6px;
+    width: 240px;
+    background: #202020;
+    color: #fff;
+    font-size: 11.5px;
+    line-height: 1.4;
+    padding: 8px 10px;
+    border-radius: 6px;
+    z-index: 20;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+    pointer-events: none;
+  }
+  .node-ind:hover {
+    border-color: #b8b6ad;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+    z-index: 10;
+  }
+  .node-ind:hover .tooltip { display: block; }
+  .matrix-col-header {
+    position: absolute;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  .matrix-row-header {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    font-size: 12.5px;
+    font-weight: 700;
+    border-left: 5px solid;
+    padding-left: 8px;
+    color: var(--text-primary);
+  }
+  .matrix-cell {
+    position: absolute;
+    background: #ffffff;
+    border: 1px solid var(--border);
+    border-top-width: 4px;
+    border-left-width: 4px;
+    border-radius: 6px;
+    padding: 8px 9px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  }
+  .cell-text {
+    font-size: 11.5px;
+    line-height: 1.35;
+    color: var(--text-primary);
+  }
+  .badge {
+    display: inline-block;
+    float: right;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--muted);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    text-align: center;
+    line-height: 16px;
+    margin-left: 6px;
+  }
+  .footnote {
+    margin-top: 14px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+  .footnote .badge { float: none; margin-right: 4px; }
+</style>
+</head>
+<body>
+  <h1>Fase 1 — Do indicador à ação: mapa do pipeline completo</h1>
+  <p class="subtitle">
+    Os 12 indicadores brutos (esquerda) alimentam o Módulo A (nowcasting do ciclo
+    econômico) e o Módulo B (risco de mercado). Cada módulo sintetiza seus
+    indicadores num score único, que é classificado numa categoria — regime
+    (Módulo A) ou nível de risco (Módulo B). O cruzamento das duas classificações
+    define a ação recomendada, na matriz 4×3 à direita. Passe o mouse sobre um
+    indicador para ver por que ele foi escolhido.
+  </p>
+  <div class="canvas-wrap">
+    <div class="canvas">
+      <svg class="edges" viewBox="0 0 1770 804">
+        <path d="M 242.0 90.0 C 274.0 90.0, 274.0 90.0, 306.0 90.0" stroke="#2a78d6" stroke-width="1.2" fill="none" opacity="0.38"/>
+<path d="M 242.0 174.0 C 274.0 174.0, 274.0 223.0, 306.0 223.0" stroke="#1baf7a" stroke-width="1.2" fill="none" opacity="0.38"/>
+<path d="M 242.0 223.0 C 274.0 223.0, 274.0 223.0, 306.0 223.0" stroke="#1baf7a" stroke-width="1.2" fill="none" opacity="0.38"/>
+<path d="M 242.0 272.0 C 274.0 272.0, 274.0 223.0, 306.0 223.0" stroke="#1baf7a" stroke-width="1.2" fill="none" opacity="0.38"/>
+<path d="M 242.0 356.0 C 274.0 356.0, 274.0 380.5, 306.0 380.5" stroke="#eda100" stroke-width="1.2" fill="none" opacity="0.38"/>
+<path d="M 242.0 405.0 C 274.0 405.0, 274.0 380.5, 306.0 380.5" stroke="#eda100" stroke-width="1.2" fill="none" opacity="0.38"/>
+<path d="M 242.0 489.0 C 274.0 489.0, 274.0 611.5, 306.0 611.5" stroke="#4a3aa7" stroke-width="1.2" fill="none" opacity="0.38"/>
+<path d="M 242.0 538.0 C 274.0 538.0, 274.0 611.5, 306.0 611.5" stroke="#4a3aa7" stroke-width="1.2" fill="none" opacity="0.38"/>
+<path d="M 242.0 587.0 C 274.0 587.0, 274.0 611.5, 306.0 611.5" stroke="#4a3aa7" stroke-width="1.2" fill="none" opacity="0.38"/>
+<path d="M 242.0 636.0 C 274.0 636.0, 274.0 611.5, 306.0 611.5" stroke="#4a3aa7" stroke-width="1.2" fill="none" opacity="0.38"/>
+<path d="M 242.0 685.0 C 274.0 685.0, 274.0 611.5, 306.0 611.5" stroke="#4a3aa7" stroke-width="1.2" fill="none" opacity="0.38"/>
+<path d="M 242.0 734.0 C 274.0 734.0, 274.0 611.5, 306.0 611.5" stroke="#4a3aa7" stroke-width="1.2" fill="none" opacity="0.38"/>
+<path d="M 506.0 90.0 C 536.0 90.0, 536.0 231.2, 566.0 231.2" stroke="#2a78d6" stroke-width="2" fill="none" opacity="0.55"/>
+<path d="M 506.0 223.0 C 536.0 223.0, 536.0 231.2, 566.0 231.2" stroke="#1baf7a" stroke-width="2" fill="none" opacity="0.55"/>
+<path d="M 506.0 380.5 C 536.0 380.5, 536.0 231.2, 566.0 231.2" stroke="#eda100" stroke-width="2" fill="none" opacity="0.55"/>
+<path d="M 506.0 611.5 C 536.0 611.5, 536.0 611.5, 566.0 611.5" stroke="#4a3aa7" stroke-width="2" fill="none" opacity="0.55"/>
+<path d="M 798.0 231.2 C 830.0 231.2, 830.0 138.2, 862.0 138.2" stroke="#70AD47" stroke-width="2" fill="none" opacity="0.5"/>
+<path d="M 798.0 231.2 C 830.0 231.2, 830.0 200.2, 862.0 200.2" stroke="#4472C4" stroke-width="2" fill="none" opacity="0.5"/>
+<path d="M 798.0 231.2 C 830.0 231.2, 830.0 262.2, 862.0 262.2" stroke="#ED7D31" stroke-width="2" fill="none" opacity="0.5"/>
+<path d="M 798.0 231.2 C 830.0 231.2, 830.0 324.2, 862.0 324.2" stroke="#C00000" stroke-width="2" fill="none" opacity="0.5"/>
+<path d="M 798.0 611.5 C 830.0 611.5, 830.0 549.5, 862.0 549.5" stroke="#70AD47" stroke-width="2" fill="none" opacity="0.5"/>
+<path d="M 798.0 611.5 C 830.0 611.5, 830.0 611.5, 862.0 611.5" stroke="#9c9c9c" stroke-width="2" fill="none" opacity="0.5"/>
+<path d="M 798.0 611.5 C 830.0 611.5, 830.0 673.5, 862.0 673.5" stroke="#C00000" stroke-width="2" fill="none" opacity="0.5"/>
+<path d="M 1022.0 138.2 C 1059.0 138.2, 1059.0 184.0, 1096.0 184.0" stroke="#70AD47" stroke-width="2.4" fill="none" opacity="0.6"/>
+<path d="M 1022.0 200.2 C 1059.0 200.2, 1059.0 286.0, 1096.0 286.0" stroke="#4472C4" stroke-width="2.4" fill="none" opacity="0.6"/>
+<path d="M 1022.0 262.2 C 1059.0 262.2, 1059.0 388.0, 1096.0 388.0" stroke="#ED7D31" stroke-width="2.4" fill="none" opacity="0.6"/>
+<path d="M 1022.0 324.2 C 1059.0 324.2, 1059.0 490.0, 1096.0 490.0" stroke="#C00000" stroke-width="2.4" fill="none" opacity="0.6"/>
+<path d="M 1022.0 549.5 C 1174.9 549.5, 1300.0 -67.8, 1300.0 138.0" stroke="#70AD47" stroke-width="2.4" fill="none" opacity="0.6"/>
+<path d="M 1022.0 611.5 C 1269.5 611.5, 1472.0 -98.8, 1472.0 138.0" stroke="#9c9c9c" stroke-width="2.4" fill="none" opacity="0.6"/>
+<path d="M 1022.0 673.5 C 1364.1 673.5, 1644.0 -129.8, 1644.0 138.0" stroke="#C00000" stroke-width="2.4" fill="none" opacity="0.6"/>
+      </svg>
+      <div class="group-header" style="left:26px; top:46px; width:216px;"><span class="swatch" style="background:#2a78d6"></span>Produção</div>
+<div class="group-header" style="left:26px; top:130px; width:216px;"><span class="swatch" style="background:#1baf7a"></span>Emprego</div>
+<div class="group-header" style="left:26px; top:312px; width:216px;"><span class="swatch" style="background:#eda100"></span>Consumo</div>
+<div class="group-header" style="left:26px; top:445px; width:216px;"><span class="swatch" style="background:#4a3aa7"></span>Módulo B — Risk-on / Risk-off</div>
+<div class="node node-ind" style="left:26px; top:70px; width:216px; height:40px; border-left-color:#2a78d6;"><div class="node-label">Produção Industrial</div><div class="node-sub">FRED: INDPRO</div><div class="tooltip">Proxy mais direto de atividade real — a série 'espinha dorsal' do CFNAI.</div></div>
+<div class="node node-ind" style="left:26px; top:154px; width:216px; height:40px; border-left-color:#1baf7a;"><div class="node-label">Payrolls (folha não-agrícola)</div><div class="node-sub">FRED: PAYEMS</div><div class="tooltip">Geração de empregos mês a mês — sinal coincidente forte do ciclo.</div></div>
+<div class="node node-ind" style="left:26px; top:203px; width:216px; height:40px; border-left-color:#1baf7a;"><div class="node-label">Taxa de Desemprego</div><div class="node-sub">FRED: UNRATE</div><div class="tooltip">Nível invertido: desemprego subindo pesa contra o score de atividade.</div></div>
+<div class="node node-ind" style="left:26px; top:252px; width:216px; height:40px; border-left-color:#1baf7a;"><div class="node-label">Seguro-Desemprego</div><div class="node-sub">FRED: ICSA</div><div class="tooltip">Semanal — o dado de emprego mais rápido disponível, média móvel de 4 semanas.</div></div>
+<div class="node node-ind" style="left:26px; top:336px; width:216px; height:40px; border-left-color:#eda100;"><div class="node-label">Vendas no Varejo</div><div class="node-sub">FRED: RSAFS</div><div class="tooltip">Termômetro do consumo, ~70% do PIB americano.</div></div>
+<div class="node node-ind" style="left:26px; top:385px; width:216px; height:40px; border-left-color:#eda100;"><div class="node-label">Philly Fed</div><div class="node-sub">FRED: GACDFSA066MSFRBPHI</div><div class="tooltip">Índice de difusão de sentimento industrial — antecedente, não coincidente.</div></div>
+<div class="node node-ind" style="left:26px; top:469px; width:216px; height:40px; border-left-color:#4a3aa7;"><div class="node-label">VIX</div><div class="node-sub">FRED: VIXCLS</div><div class="tooltip">Volatilidade implícita — o 'medo' do mercado de ações. Sinal invertido.</div></div>
+<div class="node node-ind" style="left:26px; top:518px; width:216px; height:40px; border-left-color:#4a3aa7;"><div class="node-label">Spread de Crédito</div><div class="node-sub">FRED: BAA10Y</div><div class="tooltip">Prêmio de risco de crédito Baa vs. Treasury 10y. Sinal invertido.</div></div>
+<div class="node node-ind" style="left:26px; top:567px; width:216px; height:40px; border-left-color:#4a3aa7;"><div class="node-label">Iene / Dólar</div><div class="node-sub">FRED: DEXJPUS</div><div class="tooltip">Iene é moeda de refúgio — fortalece em risk-off. Sinal invertido.</div></div>
+<div class="node node-ind" style="left:26px; top:616px; width:216px; height:40px; border-left-color:#4a3aa7;"><div class="node-label">Treasury 10Y</div><div class="node-sub">FRED: DGS10</div><div class="tooltip">Yield sobe com apetite a risco, cai com fuga para qualidade. Sinal invertido.</div></div>
+<div class="node node-ind" style="left:26px; top:665px; width:216px; height:40px; border-left-color:#4a3aa7;"><div class="node-label">AUD / JPY</div><div class="node-sub">Yahoo: AUDJPY=X</div><div class="tooltip">Clássico termômetro cambial de risk-on/off (moeda-commodity vs. moeda-refúgio).</div></div>
+<div class="node node-ind" style="left:26px; top:714px; width:216px; height:40px; border-left-color:#4a3aa7;"><div class="node-label">Ouro</div><div class="node-sub">Yahoo: GC=F</div><div class="tooltip">Reserva de valor em crises — peso reduzido (0,5) por também reagir à inflação.</div></div>
+<div class="node node-agg" style="left:306px; top:62.0px; width:200px; height:56px; border-left-color:#2a78d6;"><div class="node-label">Produção</div><div class="node-sub">z-score (janela de 10 anos)</div></div>
+<div class="node node-agg" style="left:306px; top:195.0px; width:200px; height:56px; border-left-color:#1baf7a;"><div class="node-label">Emprego</div><div class="node-sub">z-score médio de 3 indicadores</div></div>
+<div class="node node-agg" style="left:306px; top:352.5px; width:200px; height:56px; border-left-color:#eda100;"><div class="node-label">Consumo</div><div class="node-sub">z-score médio de 2 indicadores</div></div>
+<div class="node node-agg" style="left:306px; top:583.5px; width:200px; height:56px; border-left-color:#4a3aa7;"><div class="node-label">Score de Risco</div><div class="node-sub">composto ponderado (6 indicadores)</div></div>
+<div class="node node-sintese" style="left:566px; top:192.16666666666666px; width:232px; height:78px; border-left-color:#5b5b5b;"><div class="node-label">Score de Nível + Momentum</div><div class="node-sub">média das 3 categorias · MM3 · Δ3m</div></div>
+<div class="node node-sintese" style="left:566px; top:572.5px; width:232px; height:78px; border-left-color:#4a3aa7;"><div class="node-label">Score de Risco Filtrado</div><div class="node-sub">discretização (-2 a +2) + filtro de persistência</div></div>
+<div class="node node-classe" style="left:862px; top:115.16666666666666px; width:160px; height:46px; background:#70AD47;"><div class="node-label node-label-white">Expansão</div></div>
+<div class="node node-classe" style="left:862px; top:177.16666666666666px; width:160px; height:46px; background:#4472C4;"><div class="node-label node-label-white">Recuperação</div></div>
+<div class="node node-classe" style="left:862px; top:239.16666666666666px; width:160px; height:46px; background:#ED7D31;"><div class="node-label node-label-white">Desaceleração</div></div>
+<div class="node node-classe" style="left:862px; top:301.16666666666663px; width:160px; height:46px; background:#C00000;"><div class="node-label node-label-white">Contração</div></div>
+<div class="node node-classe" style="left:862px; top:526.5px; width:160px; height:46px; background:#70AD47;"><div class="node-label node-label-white">Risk-on</div></div>
+<div class="node node-classe" style="left:862px; top:588.5px; width:160px; height:46px; background:#9c9c9c;"><div class="node-label node-label-white">Neutro</div></div>
+<div class="node node-classe" style="left:862px; top:650.5px; width:160px; height:46px; background:#C00000;"><div class="node-label node-label-white">Risk-off</div></div>
+<div class="col-title" style="left:26px; top:8px; width:216px;">Indicadores brutos</div>
+<div class="col-title" style="left:306px; top:8px; width:200px;">Agregação por categoria</div>
+<div class="col-title" style="left:566px; top:8px; width:232px;">Síntese do módulo</div>
+<div class="col-title" style="left:862px; top:8px; width:160px;">Classificação</div>
+<div class="col-title" style="left:1096px; top:8px; width:634px;">Ação recomendada (matriz 4×3)</div>
+<div class="matrix-col-header" style="left:1214px; top:74px; width:164px; height:56px; background:#70AD47;">Risk-on</div>
+<div class="matrix-col-header" style="left:1386px; top:74px; width:164px; height:56px; background:#9c9c9c;">Neutro</div>
+<div class="matrix-col-header" style="left:1558px; top:74px; width:164px; height:56px; background:#C00000;">Risk-off</div>
+<div class="matrix-row-header" style="left:1096px; top:138px; width:108px; height:84px; border-left-color:#70AD47;">Expansão</div>
+<div class="matrix-row-header" style="left:1096px; top:240px; width:108px; height:84px; border-left-color:#4472C4;">Recuperação</div>
+<div class="matrix-row-header" style="left:1096px; top:342px; width:108px; height:84px; border-left-color:#ED7D31;">Desaceleração</div>
+<div class="matrix-row-header" style="left:1096px; top:444px; width:108px; height:84px; border-left-color:#C00000;">Contração</div>
+<div class="matrix-cell" style="left:1214px; top:138px; width:164px; height:84px; border-top-color:#70AD47; border-left-color:#70AD47;"><div class="cell-text">Aumentar exposição a cíclicos / beta alto</div></div>
+<div class="matrix-cell" style="left:1386px; top:138px; width:164px; height:84px; border-top-color:#9c9c9c; border-left-color:#70AD47;"><div class="cell-text">Manter exposição-alvo</div></div>
+<div class="matrix-cell" style="left:1558px; top:138px; width:164px; height:84px; border-top-color:#C00000; border-left-color:#70AD47;"><div class="cell-text">Risk-off temporário → manter posição, tratar como ruído</div></div>
+<div class="matrix-cell" style="left:1214px; top:240px; width:164px; height:84px; border-top-color:#70AD47; border-left-color:#4472C4;"><div class="cell-text">Aumentar exposição gradualmente, rotacionar para cíclicos</div></div>
+<div class="matrix-cell" style="left:1386px; top:240px; width:164px; height:84px; border-top-color:#9c9c9c; border-left-color:#4472C4;"><div class="cell-text">Postura neutra, aguardar confirmação</div></div>
+<div class="matrix-cell" style="left:1558px; top:240px; width:164px; height:84px; border-top-color:#C00000; border-left-color:#4472C4;"><div class="cell-text">Cautela — pode ser recuperação falsa; reduzir tamanho</div></div>
+<div class="matrix-cell" style="left:1214px; top:342px; width:164px; height:84px; border-top-color:#70AD47; border-left-color:#ED7D31;"><div class="cell-text">Reduzir gradualmente, rotacionar para qualidade/defensivos</div></div>
+<div class="matrix-cell" style="left:1386px; top:342px; width:164px; height:84px; border-top-color:#9c9c9c; border-left-color:#ED7D31;"><div class="cell-text">Reduzir exposição-alvo</div></div>
+<div class="matrix-cell" style="left:1558px; top:342px; width:164px; height:84px; border-top-color:#C00000; border-left-color:#ED7D31;"><span class="badge">I</span><div class="cell-text">Reduzir risco de forma decisiva</div></div>
+<div class="matrix-cell" style="left:1214px; top:444px; width:164px; height:84px; border-top-color:#70AD47; border-left-color:#C00000;"><div class="cell-text">Alerta — possível &quot;bear market rally&quot;; não confiar sozinho</div></div>
+<div class="matrix-cell" style="left:1386px; top:444px; width:164px; height:84px; border-top-color:#9c9c9c; border-left-color:#C00000;"><span class="badge">I</span><div class="cell-text">Reduzir risco de forma decisiva</div></div>
+<div class="matrix-cell" style="left:1558px; top:444px; width:164px; height:84px; border-top-color:#C00000; border-left-color:#C00000;"><div class="cell-text">Reduzir risco de forma decisiva (mais defensiva do framework)</div></div>
+    </div>
+  </div>
+  <div class="footnote">
+    <strong>Nota:</strong> duas combinações diferentes de (regime, risco) podem levar
+    à mesma ação recomendada — marcadas com o mesmo círculo numerado:
+    &nbsp;<span class="badge">I</span> Reduzir risco de forma decisiva.
+  </div>
+</body>
+</html>

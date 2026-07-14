@@ -1,0 +1,6 @@
+fredapi
+yfinance
+pandas
+numpy
+python-dotenv
+openpyxl
