@@ -1,132 +1,132 @@
 #!/usr/bin/env python3
 """
-Gera o diagrama de fluxo da Fase 1: indicadores brutos -> agregacao ->
-sintese por modulo -> classificacao (regime/risco) -> matriz de 12 acoes.
+Generates the Phase 1 flow diagram: raw indicators -> aggregation ->
+module synthesis -> classification (regime/risk) -> 12-action matrix.
 
-Produz um HTML autocontido (CSS + SVG inline, sem dependencias externas)
-em diagrama_fase1.html.
+Produces a self-contained HTML (inline CSS + SVG, no external
+dependencies) at diagram_phase1.html.
 """
 
 import json
 
 # ---------------------------------------------------------------------------
-# Dados (espelham 1:1 config.py e matriz.py do pipeline)
+# Data (mirrors config.py and matrix.py from the pipeline 1:1)
 # ---------------------------------------------------------------------------
 
 GROUP_COLOR = {
-    "producao": "#2a78d6",
-    "emprego": "#1baf7a",
-    "consumo": "#eda100",
-    "modulob": "#4a3aa7",
+    "production": "#2a78d6",
+    "employment": "#1baf7a",
+    "consumption": "#eda100",
+    "module_b": "#4a3aa7",
 }
 GROUP_LABEL = {
-    "producao": "Produção",
-    "emprego": "Emprego",
-    "consumo": "Consumo",
-    "modulob": "Módulo B — Risk-on / Risk-off",
+    "production": "Production",
+    "employment": "Employment",
+    "consumption": "Consumption",
+    "module_b": "Module B — Risk-on / Risk-off",
 }
 
 INDICATORS = [
-    dict(id="indpro", label="Produção Industrial", sub="FRED: INDPRO", group="producao",
-         nota="Proxy mais direto de atividade real — a série 'espinha dorsal' do CFNAI."),
-    dict(id="payrolls", label="Payrolls (folha não-agrícola)", sub="FRED: PAYEMS", group="emprego",
-         nota="Geração de empregos mês a mês — sinal coincidente forte do ciclo."),
-    dict(id="desemprego", label="Taxa de Desemprego", sub="FRED: UNRATE", group="emprego",
-         nota="Nível invertido: desemprego subindo pesa contra o score de atividade."),
-    dict(id="seguro_desemprego", label="Seguro-Desemprego", sub="FRED: ICSA", group="emprego",
-         nota="Semanal — o dado de emprego mais rápido disponível, média móvel de 4 semanas."),
-    dict(id="varejo", label="Vendas no Varejo", sub="FRED: RSAFS", group="consumo",
-         nota="Termômetro do consumo, ~70% do PIB americano."),
-    dict(id="philly", label="Philly Fed", sub="FRED: GACDFSA066MSFRBPHI", group="consumo",
-         nota="Índice de difusão de sentimento industrial — antecedente, não coincidente."),
-    dict(id="vix", label="VIX", sub="FRED: VIXCLS", group="modulob",
-         nota="Volatilidade implícita — o 'medo' do mercado de ações. Sinal invertido."),
-    dict(id="credit", label="Spread de Crédito", sub="FRED: BAA10Y", group="modulob",
-         nota="Prêmio de risco de crédito Baa vs. Treasury 10y. Sinal invertido."),
-    dict(id="jpy", label="Iene / Dólar", sub="FRED: DEXJPUS", group="modulob",
-         nota="Iene é moeda de refúgio — fortalece em risk-off. Sinal invertido."),
-    dict(id="treasury", label="Treasury 10Y", sub="FRED: DGS10", group="modulob",
-         nota="Yield sobe com apetite a risco, cai com fuga para qualidade. Sinal invertido."),
-    dict(id="audjpy", label="AUD / JPY", sub="Yahoo: AUDJPY=X", group="modulob",
-         nota="Clássico termômetro cambial de risk-on/off (moeda-commodity vs. moeda-refúgio)."),
-    dict(id="ouro", label="Ouro", sub="Yahoo: GC=F", group="modulob",
-         nota="Reserva de valor em crises — peso reduzido (0,5) por também reagir à inflação."),
+    dict(id="indpro", label="Industrial Production", sub="FRED: INDPRO", group="production",
+         note="The most direct proxy for real activity — the 'backbone' series of the CFNAI."),
+    dict(id="payrolls", label="Payrolls (Nonfarm)", sub="FRED: PAYEMS", group="employment",
+         note="Month-to-month job creation — a strong coincident signal of the cycle."),
+    dict(id="unemployment_rate", label="Unemployment Rate", sub="FRED: UNRATE", group="employment",
+         note="Inverted level: rising unemployment weighs against the activity score."),
+    dict(id="unemployment_claims", label="Unemployment Claims", sub="FRED: ICSA", group="employment",
+         note="Weekly — the fastest available employment data, 4-week moving average."),
+    dict(id="retail_sales", label="Retail Sales", sub="FRED: RSAFS", group="consumption",
+         note="Consumption thermometer, ~70% of US GDP."),
+    dict(id="philly_fed", label="Philly Fed", sub="FRED: GACDFSA066MSFRBPHI", group="consumption",
+         note="Industrial sentiment diffusion index — leading, not coincident."),
+    dict(id="vix", label="VIX", sub="FRED: VIXCLS", group="module_b",
+         note="Implied volatility — the stock market's 'fear gauge'. Inverted signal."),
+    dict(id="credit_spread", label="Credit Spread", sub="FRED: BAA10Y", group="module_b",
+         note="Baa vs. 10y Treasury credit risk premium. Inverted signal."),
+    dict(id="jpy_usd", label="Yen / Dollar", sub="FRED: DEXJPUS", group="module_b",
+         note="The yen is a safe-haven currency — strengthens in risk-off. Inverted signal."),
+    dict(id="treasury_10y", label="10Y Treasury", sub="FRED: DGS10", group="module_b",
+         note="Yield rises with risk appetite, falls with flight to quality. Inverted signal."),
+    dict(id="aud_jpy", label="AUD / JPY", sub="Yahoo: AUDJPY=X", group="module_b",
+         note="Classic FX risk-on/off thermometer (commodity currency vs. safe-haven currency)."),
+    dict(id="gold", label="Gold", sub="Yahoo: GC=F", group="module_b",
+         note="Store of value in crises — reduced weight (0.5) since it also reacts to inflation."),
 ]
 
 COL2 = [
-    dict(id="cat_producao", label="Produção", sub="z-score (janela de 10 anos)", group="producao"),
-    dict(id="cat_emprego", label="Emprego", sub="z-score médio de 3 indicadores", group="emprego"),
-    dict(id="cat_consumo", label="Consumo", sub="z-score médio de 2 indicadores", group="consumo"),
-    dict(id="score_risco_composto", label="Score de Risco", sub="composto ponderado (6 indicadores)", group="modulob"),
+    dict(id="cat_production", label="Production", sub="z-score (10-year window)", group="production"),
+    dict(id="cat_employment", label="Employment", sub="average z-score of 3 indicators", group="employment"),
+    dict(id="cat_consumption", label="Consumption", sub="average z-score of 2 indicators", group="consumption"),
+    dict(id="composite_risk_score", label="Risk Score", sub="weighted composite (6 indicators)", group="module_b"),
 ]
 
 COL3 = [
-    dict(id="score_nivel_momentum", label="Score de Nível + Momentum", sub="média das 3 categorias · MM3 · Δ3m",
-         color="#5b5b5b", srcs=["producao", "emprego", "consumo"]),
-    dict(id="score_risco_filtrado", label="Score de Risco Filtrado", sub="discretização (-2 a +2) + filtro de persistência",
-         color="#4a3aa7", srcs=["modulob"]),
+    dict(id="level_momentum_score", label="Level + Momentum Score", sub="average of 3 categories · 3M MA · Δ3m",
+         color="#5b5b5b", srcs=["production", "employment", "consumption"]),
+    dict(id="filtered_risk_score", label="Filtered Risk Score", sub="discretization (-2 to +2) + persistence filter",
+         color="#4a3aa7", srcs=["module_b"]),
 ]
 
 REGIMES = [
-    dict(id="expansao", label="Expansão", color="#70AD47"),
-    dict(id="recuperacao", label="Recuperação", color="#4472C4"),
-    dict(id="desaceleracao", label="Desaceleração", color="#ED7D31"),
-    dict(id="contracao", label="Contração", color="#C00000"),
+    dict(id="expansion", label="Expansion", color="#70AD47"),
+    dict(id="recovery", label="Recovery", color="#4472C4"),
+    dict(id="slowdown", label="Slowdown", color="#ED7D31"),
+    dict(id="contraction", label="Contraction", color="#C00000"),
 ]
-RISCOS = [
+RISKS = [
     dict(id="riskon", label="Risk-on", color="#70AD47"),
-    dict(id="neutro", label="Neutro", color="#9c9c9c"),
+    dict(id="neutral", label="Neutral", color="#9c9c9c"),
     dict(id="riskoff", label="Risk-off", color="#C00000"),
 ]
 
-# Espelha matriz.py::MATRIZ_ACAO
-MATRIZ_ACAO = {
-    ("expansao", "riskon"): "Aumentar exposição a cíclicos / beta alto",
-    ("expansao", "neutro"): "Manter exposição-alvo",
-    ("expansao", "riskoff"): "Risk-off temporário → manter posição, tratar como ruído",
-    ("recuperacao", "riskon"): "Aumentar exposição gradualmente, rotacionar para cíclicos",
-    ("recuperacao", "neutro"): "Postura neutra, aguardar confirmação",
-    ("recuperacao", "riskoff"): "Cautela — pode ser recuperação falsa; reduzir tamanho",
-    ("desaceleracao", "riskon"): "Reduzir gradualmente, rotacionar para qualidade/defensivos",
-    ("desaceleracao", "neutro"): "Reduzir exposição-alvo",
-    ("desaceleracao", "riskoff"): "Reduzir risco de forma decisiva",
-    ("contracao", "riskon"): 'Alerta — possível "bear market rally"; não confiar sozinho',
-    ("contracao", "neutro"): "Reduzir risco de forma decisiva",
-    ("contracao", "riskoff"): "Reduzir risco de forma decisiva (mais defensiva do framework)",
+# Mirrors matrix.py::ACTION_MATRIX
+ACTION_MATRIX = {
+    ("expansion", "riskon"): "Increase exposure to cyclicals / high beta",
+    ("expansion", "neutral"): "Maintain target exposure",
+    ("expansion", "riskoff"): "Temporary risk-off → hold position, treat as noise",
+    ("recovery", "riskon"): "Increase exposure gradually, start rotating into cyclicals",
+    ("recovery", "neutral"): "Neutral stance, wait for confirmation",
+    ("recovery", "riskoff"): "Caution — may be a false recovery; reduce position size",
+    ("slowdown", "riskon"): "Reduce gradually, rotate into quality/defensives",
+    ("slowdown", "neutral"): "Reduce target exposure",
+    ("slowdown", "riskoff"): "Cut risk decisively",
+    ("contraction", "riskon"): 'Alert — possible "bear market rally"; don\'t trust the tactical signal alone',
+    ("contraction", "neutral"): "Cut risk decisively",
+    ("contraction", "riskoff"): "Cut risk decisively (the framework's most defensive stance)",
 }
 
-# Grupos de ação com texto idêntico -> mesmo "badge" (letra) no canto da célula,
-# pra deixar visualmente óbvio quando duas combinações diferentes levam à
-# mesma recomendação.
-ACAO_BADGE = {}
-_badge_por_texto = {}
-_proxima_letra = ord("A")
-for chave, texto in MATRIZ_ACAO.items():
-    if texto not in _badge_por_texto:
-        _badge_por_texto[texto] = chr(_proxima_letra)
-        _proxima_letra += 1
-    ACAO_BADGE[chave] = _badge_por_texto[texto]
-# só mostramos o badge quando o texto se repete em mais de 1 célula
-_contagem_texto = {}
-for texto in MATRIZ_ACAO.values():
-    _contagem_texto[texto] = _contagem_texto.get(texto, 0) + 1
-for chave, texto in MATRIZ_ACAO.items():
-    if _contagem_texto[texto] < 2:
-        ACAO_BADGE[chave] = None
+# Action groups with identical text -> same "badge" (letter) in the corner
+# of the cell, to make it visually obvious when two different combinations
+# lead to the same recommendation.
+ACTION_BADGE = {}
+_badge_by_text = {}
+_next_letter = ord("A")
+for key, text in ACTION_MATRIX.items():
+    if text not in _badge_by_text:
+        _badge_by_text[text] = chr(_next_letter)
+        _next_letter += 1
+    ACTION_BADGE[key] = _badge_by_text[text]
+# only show the badge when the text repeats in more than 1 cell
+_text_count = {}
+for text in ACTION_MATRIX.values():
+    _text_count[text] = _text_count.get(text, 0) + 1
+for key, text in ACTION_MATRIX.items():
+    if _text_count[text] < 2:
+        ACTION_BADGE[key] = None
 
 print(json.dumps({"indicators": len(INDICATORS), "col2": len(COL2)}, indent=2))
 
 # ---------------------------------------------------------------------------
-# Layout — todas as coordenadas em pixels, calculadas a partir das
-# constantes abaixo (mexer nas constantes reflui automaticamente pro
-# layout inteiro, não precisa re-calcular nada à mão).
+# Layout — all coordinates in pixels, computed from the constants below
+# (tweaking a constant automatically flows through the entire layout, no
+# need to recompute anything by hand).
 # ---------------------------------------------------------------------------
 
 MARGIN_TOP = 46
-NODE_H1 = 40          # altura de cada indicador (coluna 1)
-GAP1 = 9              # espaço entre indicadores do mesmo grupo
+NODE_H1 = 40          # height of each indicator (column 1)
+GAP1 = 9              # spacing between indicators of the same group
 GROUP_HEADER_H = 24
-GROUP_GAP = 20         # espaço extra entre grupos
+GROUP_GAP = 20         # extra spacing between groups
 
 COL1_X, COL1_W = 26, 216
 COL2_X, COL2_W = 306, 200
@@ -144,10 +144,10 @@ NODE_H3 = 78
 NODE_H4 = 46
 GAP4 = 16
 
-# --- Coluna 1: indicadores agrupados ---------------------------------------
-groups_order = ["producao", "emprego", "consumo", "modulob"]
-col1_nodes = {}   # id -> dict com x,y,w,h
-col1_group_bounds = {}  # group -> (top, bottom) dos NÓS (sem o header)
+# --- Column 1: grouped indicators -------------------------------------------
+groups_order = ["production", "employment", "consumption", "module_b"]
+col1_nodes = {}   # id -> dict with x,y,w,h
+col1_group_bounds = {}  # group -> (top, bottom) of the NODES (without the header)
 y = MARGIN_TOP
 for g in groups_order:
     header_top = y
@@ -164,7 +164,7 @@ for g in groups_order:
     y += GROUP_GAP
 COL1_BOTTOM = y - GROUP_GAP
 
-# --- Coluna 2: agregação por categoria (centralizada no cluster de origem) --
+# --- Column 2: aggregation by category (centered on the source cluster) ----
 col2_nodes = {}
 for node in COL2:
     top, bottom, _ = col1_group_bounds[node["group"]]
@@ -173,7 +173,7 @@ for node in COL2:
     col2_nodes[node["id"]] = dict(x=COL2_X, y=ny, w=COL2_W, h=NODE_H2, data=node,
                                    color=GROUP_COLOR[node["group"]])
 
-# --- Coluna 3: síntese por módulo ------------------------------------------
+# --- Column 3: module synthesis ---------------------------------------------
 col3_nodes = {}
 for node in COL3:
     centers = []
@@ -185,7 +185,7 @@ for node in COL3:
     ny = center - NODE_H3 / 2
     col3_nodes[node["id"]] = dict(x=COL3_X, y=ny, w=COL3_W, h=NODE_H3, data=node, color=node["color"])
 
-# --- Coluna 4: classificação (regime + risco) -------------------------------
+# --- Column 4: classification (regime + risk) -------------------------------
 def stack_centered(items, x, w, h, gap, center):
     total = len(items) * h + (len(items) - 1) * gap
     top = center - total / 2
@@ -196,19 +196,19 @@ def stack_centered(items, x, w, h, gap, center):
         yy += h + gap
     return out
 
-regime_center = col3_nodes["score_nivel_momentum"]["y"] + col3_nodes["score_nivel_momentum"]["h"] / 2
-risco_center = col3_nodes["score_risco_filtrado"]["y"] + col3_nodes["score_risco_filtrado"]["h"] / 2
+regime_center = col3_nodes["level_momentum_score"]["y"] + col3_nodes["level_momentum_score"]["h"] / 2
+risk_center = col3_nodes["filtered_risk_score"]["y"] + col3_nodes["filtered_risk_score"]["h"] / 2
 
 regime_nodes = stack_centered(REGIMES, COL4_X, COL4_W, NODE_H4, GAP4, regime_center)
-risco_nodes = stack_centered(RISCOS, COL4_X, COL4_W, NODE_H4, GAP4, risco_center)
-col4_nodes = {**regime_nodes, **risco_nodes}
+risk_nodes = stack_centered(RISKS, COL4_X, COL4_W, NODE_H4, GAP4, risk_center)
+col4_nodes = {**regime_nodes, **risk_nodes}
 
-# --- Coluna 5: matriz 4x3 ----------------------------------------------------
-# O topo da matriz precisa deixar espaço, acima dele, para o cabeçalho de
-# coluna (MATRIX_HEADER_H) + o título "Ação recomendada" da própria coluna
-# + uma margem — senão os dois se sobrepõem visualmente (foi exatamente o
-# que aconteceu na primeira versão: o cabeçalho colorido da matriz cobria
-# o título da coluna, porque regime_center ficava perto demais do topo).
+# --- Column 5: 4x3 matrix ----------------------------------------------------
+# The top of the matrix needs to leave room, above it, for the column
+# header (MATRIX_HEADER_H) + the column's own "Recommended action" title
+# + a margin — otherwise the two visually overlap (that's exactly what
+# happened in the first version: the matrix's colored header covered the
+# column title, because regime_center ended up too close to the top).
 MATRIX_TOP_MIN = MARGIN_TOP + 28 + MATRIX_HEADER_H
 matrix_top = max(
     regime_center - (4 * MATRIX_ROW_H + 3 * MATRIX_ROW_GAP) / 2,
@@ -222,7 +222,7 @@ for r in REGIMES:
 matrix_grid_x = MATRIX_X + MATRIX_ROW_LABEL_W
 matrix_cols_x = {}
 xx = matrix_grid_x
-for rc in RISCOS:
+for rc in RISKS:
     matrix_cols_x[rc["id"]] = xx
     xx += MATRIX_COL_W
 
@@ -230,27 +230,28 @@ MATRIX_RIGHT = matrix_grid_x + 3 * MATRIX_COL_W
 MATRIX_BOTTOM = matrix_top + 4 * MATRIX_ROW_H + 3 * MATRIX_ROW_GAP
 
 CANVAS_W = MATRIX_RIGHT + 40
-CANVAS_H = max(COL1_BOTTOM, MATRIX_BOTTOM, risco_nodes[RISCOS[-1]["id"]]["y"] + NODE_H4) + 50
+CANVAS_H = max(COL1_BOTTOM, MATRIX_BOTTOM, risk_nodes[RISKS[-1]["id"]]["y"] + NODE_H4) + 50
 
 print("layout ok", CANVAS_W, CANVAS_H)
 
 # ---------------------------------------------------------------------------
-# Curvas (SVG bezier) entre nós
+# Curves (SVG bezier) between nodes
 # ---------------------------------------------------------------------------
 
 def bezier_hh(x1, y1, x2, y2):
-    """Curva horizontal->horizontal: sai reto da direita da origem, chega
-    reto na esquerda do destino. É o traçado clássico de diagrama de fluxo
-    (Sankey) — funciona bem mesmo com grande diferença vertical entre
-    origem e destino."""
+    """Horizontal->horizontal curve: leaves straight from the origin's
+    right side, arrives straight at the destination's left side. This is
+    the classic flow-diagram (Sankey) stroke — works well even with a
+    large vertical difference between origin and destination."""
     dx = max(abs(x2 - x1) * 0.5, 30)
     return f"M {x1:.1f} {y1:.1f} C {x1+dx:.1f} {y1:.1f}, {x2-dx:.1f} {y2:.1f}, {x2:.1f} {y2:.1f}"
 
 
 def bezier_hv(x1, y1, x2, y2):
-    """Curva horizontal->vertical: sai reto da direita da origem, mas
-    chega de BAIXO para CIMA no destino (usada para os nós de risco, que
-    precisam 'subir' até o topo das colunas da matriz)."""
+    """Horizontal->vertical curve: leaves straight from the origin's right
+    side, but arrives at the destination going from BOTTOM to TOP (used
+    for the risk nodes, which need to 'climb' to the top of the matrix
+    columns)."""
     dx = max(abs(x2 - x1) * 0.55, 40)
     dy = max(abs(y2 - y1) * 0.5, 30)
     return f"M {x1:.1f} {y1:.1f} C {x1+dx:.1f} {y1:.1f}, {x2:.1f} {y2-dy:.1f}, {x2:.1f} {y2:.1f}"
@@ -273,33 +274,33 @@ def add_edge(p1, p2, color, mode="hh", width=1.6, opacity=0.55):
     edges_svg.append(f'<path d="{path}" stroke="{color}" stroke-width="{width}" '
                       f'fill="none" opacity="{opacity}"/>')
 
-# indicador -> categoria/composto (coluna 1 -> coluna 2)
+# indicator -> category/composite (column 1 -> column 2)
 for ind in INDICATORS:
     src = col1_nodes[ind["id"]]
     dst = [c for c in col2_nodes.values() if c["data"]["group"] == ind["group"]][0]
     add_edge(right_mid(src), left_mid(dst), GROUP_COLOR[ind["group"]], width=1.2, opacity=0.38)
 
-# categoria/composto -> síntese do módulo (coluna 2 -> coluna 3)
+# category/composite -> module synthesis (column 2 -> column 3)
 for c2 in col2_nodes.values():
     dst = [c for c in col3_nodes.values() if c2["data"]["group"] in c["data"]["srcs"]][0]
     add_edge(right_mid(c2), left_mid(dst), c2["color"], width=2, opacity=0.55)
 
-# síntese -> regime / risco (coluna 3 -> coluna 4)
+# synthesis -> regime / risk (column 3 -> column 4)
 for rid in [r["id"] for r in REGIMES]:
-    add_edge(right_mid(col3_nodes["score_nivel_momentum"]), left_mid(col4_nodes[rid]),
+    add_edge(right_mid(col3_nodes["level_momentum_score"]), left_mid(col4_nodes[rid]),
               col4_nodes[rid]["color"], width=2, opacity=0.5)
-for rid in [r["id"] for r in RISCOS]:
-    add_edge(right_mid(col3_nodes["score_risco_filtrado"]), left_mid(col4_nodes[rid]),
+for rid in [r["id"] for r in RISKS]:
+    add_edge(right_mid(col3_nodes["filtered_risk_score"]), left_mid(col4_nodes[rid]),
               col4_nodes[rid]["color"], width=2, opacity=0.5)
 
-# regime -> linha da matriz (coluna 4 -> matriz, entra pela esquerda)
+# regime -> matrix row (column 4 -> matrix, enters from the left)
 for r in REGIMES:
     node = col4_nodes[r["id"]]
     target = (MATRIX_X, matrix_rows_y[r["id"]] + MATRIX_ROW_H / 2)
     add_edge(right_mid(node), target, r["color"], mode="hh", width=2.4, opacity=0.6)
 
-# risco -> coluna da matriz (coluna 4 -> matriz, entra por cima)
-for rc in RISCOS:
+# risk -> matrix column (column 4 -> matrix, enters from the top)
+for rc in RISKS:
     node = col4_nodes[rc["id"]]
     target = (matrix_cols_x[rc["id"]] + MATRIX_COL_W / 2, matrix_top)
     add_edge(right_mid(node), target, rc["color"], mode="hv", width=2.4, opacity=0.6)
@@ -307,7 +308,7 @@ for rc in RISCOS:
 print("edges:", len(edges_svg))
 
 # ---------------------------------------------------------------------------
-# HTML — nós (divs posicionados) + rótulos de coluna + legenda
+# HTML — nodes (positioned divs) + column labels + legend
 # ---------------------------------------------------------------------------
 
 def esc(s):
@@ -317,7 +318,7 @@ def esc(s):
 
 html_parts = []
 
-# --- coluna 1: indicadores + cabeçalhos de grupo ---
+# --- column 1: indicators + group headers ---
 for g in groups_order:
     top, bottom, header_top = col1_group_bounds[g]
     html_parts.append(
@@ -332,11 +333,11 @@ for ind in INDICATORS:
         f'height:{n["h"]}px; border-left-color:{color};">'
         f'<div class="node-label">{esc(ind["label"])}</div>'
         f'<div class="node-sub">{esc(ind["sub"])}</div>'
-        f'<div class="tooltip">{esc(ind["nota"])}</div>'
+        f'<div class="tooltip">{esc(ind["note"])}</div>'
         f'</div>'
     )
 
-# --- coluna 2 ---
+# --- column 2 ---
 for c2 in col2_nodes.values():
     n = c2
     html_parts.append(
@@ -347,38 +348,38 @@ for c2 in col2_nodes.values():
         f'</div>'
     )
 
-# --- coluna 3 ---
+# --- column 3 ---
 for n in col3_nodes.values():
     html_parts.append(
-        f'<div class="node node-sintese" style="left:{n["x"]}px; top:{n["y"]}px; width:{n["w"]}px; '
+        f'<div class="node node-synth" style="left:{n["x"]}px; top:{n["y"]}px; width:{n["w"]}px; '
         f'height:{n["h"]}px; border-left-color:{n["color"]};">'
         f'<div class="node-label">{esc(n["data"]["label"])}</div>'
         f'<div class="node-sub">{esc(n["data"]["sub"])}</div>'
         f'</div>'
     )
 
-# --- coluna 4 (regime + risco) ---
+# --- column 4 (regime + risk) ---
 for n in col4_nodes.values():
     html_parts.append(
-        f'<div class="node node-classe" style="left:{n["x"]}px; top:{n["y"]}px; width:{n["w"]}px; '
+        f'<div class="node node-class" style="left:{n["x"]}px; top:{n["y"]}px; width:{n["w"]}px; '
         f'height:{n["h"]}px; background:{n["color"]};">'
         f'<div class="node-label node-label-white">{esc(n["data"]["label"])}</div>'
         f'</div>'
     )
 
-# --- rótulos de coluna (cabeçalhos gerais no topo do canvas) ---
+# --- column labels (general headers at the top of the canvas) ---
 col_titles = [
-    (COL1_X, COL1_W, "Indicadores brutos"),
-    (COL2_X, COL2_W, "Agregação por categoria"),
-    (COL3_X, COL3_W, "Síntese do módulo"),
-    (COL4_X, COL4_W, "Classificação"),
-    (MATRIX_X, MATRIX_RIGHT - MATRIX_X, "Ação recomendada (matriz 4×3)"),
+    (COL1_X, COL1_W, "Raw indicators"),
+    (COL2_X, COL2_W, "Category aggregation"),
+    (COL3_X, COL3_W, "Module synthesis"),
+    (COL4_X, COL4_W, "Classification"),
+    (MATRIX_X, MATRIX_RIGHT - MATRIX_X, "Recommended action (4×3 matrix)"),
 ]
 for x, w, title in col_titles:
     html_parts.append(f'<div class="col-title" style="left:{x}px; top:8px; width:{w}px;">{esc(title)}</div>')
 
-# --- matriz: cabeçalhos de coluna (risco) ---
-for rc in RISCOS:
+# --- matrix: column headers (risk) ---
+for rc in RISKS:
     x = matrix_cols_x[rc["id"]]
     html_parts.append(
         f'<div class="matrix-col-header" style="left:{x}px; top:{matrix_top - MATRIX_HEADER_H}px; '
@@ -386,7 +387,7 @@ for rc in RISCOS:
         f'{esc(rc["label"])}</div>'
     )
 
-# --- matriz: rótulos de linha (regime) ---
+# --- matrix: row labels (regime) ---
 for r in REGIMES:
     y = matrix_rows_y[r["id"]]
     html_parts.append(
@@ -395,31 +396,31 @@ for r in REGIMES:
         f'{esc(r["label"])}</div>'
     )
 
-# --- matriz: 12 células ---
+# --- matrix: 12 cells ---
 for r in REGIMES:
-    for rc in RISCOS:
-        chave = (r["id"], rc["id"])
-        texto = MATRIZ_ACAO[chave]
-        badge = ACAO_BADGE[chave]
+    for rc in RISKS:
+        key = (r["id"], rc["id"])
+        text = ACTION_MATRIX[key]
+        badge = ACTION_BADGE[key]
         x = matrix_cols_x[rc["id"]]
         y = matrix_rows_y[r["id"]]
         badge_html = f'<span class="badge">{badge}</span>' if badge else ""
         html_parts.append(
             f'<div class="matrix-cell" style="left:{x}px; top:{y}px; width:{MATRIX_COL_W - 8}px; '
             f'height:{MATRIX_ROW_H - 8}px; border-top-color:{rc["color"]}; border-left-color:{r["color"]};">'
-            f'{badge_html}<div class="cell-text">{esc(texto)}</div></div>'
+            f'{badge_html}<div class="cell-text">{esc(text)}</div></div>'
         )
 
 nodes_html = "\n".join(html_parts)
 edges_html = "\n".join(edges_svg)
 
 # ---------------------------------------------------------------------------
-# Nota de rodapé (badges repetidos)
+# Footnote (repeated badges)
 # ---------------------------------------------------------------------------
 badge_notes = {}
-for chave, badge in ACAO_BADGE.items():
+for key, badge in ACTION_BADGE.items():
     if badge:
-        badge_notes.setdefault(badge, MATRIZ_ACAO[chave])
+        badge_notes.setdefault(badge, ACTION_MATRIX[key])
 badge_legend = " &nbsp;·&nbsp; ".join(
     f'<span class="badge">{b}</span> {esc(t)}' for b, t in sorted(badge_notes.items())
 )
@@ -427,14 +428,14 @@ badge_legend = " &nbsp;·&nbsp; ".join(
 print("html assembled, nodes:", len(html_parts))
 
 # ---------------------------------------------------------------------------
-# Documento final
+# Final document
 # ---------------------------------------------------------------------------
 
 HTML = f"""<!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Fase 1 — Do indicador à ação: mapa do pipeline</title>
+<title>Phase 1 — From indicator to action: pipeline map</title>
 <style>
   :root {{
     --surface-1: #fcfcfb;
@@ -517,8 +518,8 @@ HTML = f"""<!DOCTYPE html>
   }}
   .node-ind {{ border-left-width: 4px; cursor: default; overflow: visible; }}
   .node-agg {{ border-left-width: 5px; }}
-  .node-sintese {{ border-left-width: 5px; background: #fbfbfa; }}
-  .node-classe {{ border: none; border-radius: 6px; justify-content: center; align-items: center; }}
+  .node-synth {{ border-left-width: 5px; background: #fbfbfa; }}
+  .node-class {{ border: none; border-radius: 6px; justify-content: center; align-items: center; }}
   .node-label {{
     font-size: 12px;
     font-weight: 600;
@@ -613,14 +614,14 @@ HTML = f"""<!DOCTYPE html>
 </style>
 </head>
 <body>
-  <h1>Fase 1 — Do indicador à ação: mapa do pipeline completo</h1>
+  <h1>Phase 1 — From indicator to action: full pipeline map</h1>
   <p class="subtitle">
-    Os 12 indicadores brutos (esquerda) alimentam o Módulo A (nowcasting do ciclo
-    econômico) e o Módulo B (risco de mercado). Cada módulo sintetiza seus
-    indicadores num score único, que é classificado numa categoria — regime
-    (Módulo A) ou nível de risco (Módulo B). O cruzamento das duas classificações
-    define a ação recomendada, na matriz 4×3 à direita. Passe o mouse sobre um
-    indicador para ver por que ele foi escolhido.
+    The 12 raw indicators (left) feed Module A (economic cycle nowcasting)
+    and Module B (market risk). Each module synthesizes its indicators into
+    a single score, which is classified into a category — regime (Module A)
+    or risk level (Module B). Crossing the two classifications defines the
+    recommended action, in the 4×3 matrix on the right. Hover over an
+    indicator to see why it was chosen.
   </p>
   <div class="canvas-wrap">
     <div class="canvas">
@@ -631,15 +632,15 @@ HTML = f"""<!DOCTYPE html>
     </div>
   </div>
   <div class="footnote">
-    <strong>Nota:</strong> duas combinações diferentes de (regime, risco) podem levar
-    à mesma ação recomendada — marcadas com o mesmo círculo numerado:
+    <strong>Note:</strong> two different (regime, risk) combinations can lead
+    to the same recommended action — marked with the same numbered circle:
     &nbsp;{badge_legend}.
   </div>
 </body>
 </html>
 """
 
-with open("diagrama_fase1.html", "w", encoding="utf-8") as f:
+with open("diagram_phase1.html", "w", encoding="utf-8") as f:
     f.write(HTML)
 
-print("Arquivo gerado: diagrama_fase1.html")
+print("File generated: diagram_phase1.html")

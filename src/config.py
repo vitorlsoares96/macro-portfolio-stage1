@@ -1,110 +1,111 @@
 """
-Configuração central do projeto — Fase 1 (Nowcasting + Risk-on/Risk-off).
+Central project configuration — Phase 1 (Nowcasting + Risk-on/Risk-off).
 
-Por que este arquivo existe, e por que só tem "dados", nenhuma lógica:
-Este arquivo não CALCULA nada. Ele só guarda constantes — valores fixos que
-várias partes do código vão precisar (quais séries puxar, de qual fonte,
-com qual transformação). A ideia de centralizar isso em UM lugar só é:
-se um dia você quiser trocar a janela do z-score de 10 para 8 anos, ou
-adicionar uma nova série, você muda em UM lugar. Sem isso, esse tipo de
-número ficaria espalhado (e esquecido) em vários arquivos diferentes.
+Why this file exists, and why it only holds "data", no logic:
+This file doesn't CALCULATE anything. It only stores constants — fixed
+values that several parts of the code will need (which series to pull,
+from which source, with which transformation). The idea of centralizing
+this in ONE place is: if you ever want to change the z-score window from
+10 to 8 years, or add a new series, you change it in ONE place. Without
+this, that kind of number would end up scattered (and forgotten) across
+several different files.
 
-Isso também é o motivo de este arquivo bater 1:1 com as tabelas do
-documento de escopo técnico (Fase1_Escopo_Tecnico...md) — o código não
-"reinventa" as escolhas, ele só implementa o que já foi decidido e
-justificado lá. Se um recrutador perguntar "por que você usou essa
-série", a resposta está no documento, não perdida dentro do código.
+This is also why this file matches the tables in the technical scope
+document (Phase1_Technical_Scope...md) 1:1 — the code doesn't
+"reinvent" the choices, it just implements what was already decided and
+justified there. If a recruiter asks "why did you use this series", the
+answer is in the document, not buried inside the code.
 """
 
 # ---------------------------------------------------------------------------
-# Módulo A — indicadores de ciclo econômico (mensal / semanal)
-# Estrutura: um dicionário de dicionários. A chave externa ("producao_industrial")
-# é um nome legível que vamos usar no resto do código; o dicionário interno
-# guarda os metadados de cada série (o ID real no FRED, a categoria do CFNAI
-# a que pertence, e que transformação matemática aplicar).
+# Module A — economic cycle indicators (monthly / weekly)
+# Structure: a dict of dicts. The outer key ("industrial_production") is a
+# readable name we'll use throughout the rest of the code; the inner dict
+# holds each series' metadata (the real FRED ID, the CFNAI category it
+# belongs to, and which mathematical transformation to apply).
 # ---------------------------------------------------------------------------
-MODULO_A_SERIES = {
-    "producao_industrial": {
+MODULE_A_SERIES = {
+    "industrial_production": {
         "fred_id": "INDPRO",
-        "categoria": "producao",
-        "transformacao": "yoy",  # variação % ano contra ano
-        "frequencia": "mensal",
+        "category": "production",
+        "transformation": "yoy",  # year-over-year % change
+        "frequency": "monthly",
     },
     "payrolls": {
         "fred_id": "PAYEMS",
-        "categoria": "emprego",
-        "transformacao": "diff_mensal",  # variação absoluta mês a mês (milhares de empregos)
-        "frequencia": "mensal",
+        "category": "employment",
+        "transformation": "monthly_diff",  # absolute month-over-month change (thousands of jobs)
+        "frequency": "monthly",
     },
-    "desemprego": {
+    "unemployment_rate": {
         "fred_id": "UNRATE",
-        "categoria": "emprego",
-        "transformacao": "nivel_invertido",  # nível, mas sinal invertido (queda = positivo)
-        "frequencia": "mensal",
+        "category": "employment",
+        "transformation": "inverted_level",  # level, sign inverted (a drop = positive)
+        "frequency": "monthly",
     },
-    "seguro_desemprego": {
+    "unemployment_claims": {
         "fred_id": "ICSA",
-        "categoria": "emprego",
-        "transformacao": "nivel_invertido_mm4",  # média móvel 4 semanas, sinal invertido
-        "frequencia": "semanal",  # precisa ser reduzida para mensal antes de juntar com as outras
+        "category": "employment",
+        "transformation": "inverted_level_ma4",  # 4-week moving average, then inverted
+        "frequency": "weekly",  # needs to be downsampled to monthly before merging with the others
     },
-    "vendas_varejo": {
+    "retail_sales": {
         "fred_id": "RSAFS",
-        "categoria": "consumo",
-        "transformacao": "yoy",
-        "frequencia": "mensal",
+        "category": "consumption",
+        "transformation": "yoy",
+        "frequency": "monthly",
     },
     "philly_fed": {
         "fred_id": "GACDFSA066MSFRBPHI",
-        "categoria": "consumo",  # ver nota do doc: proxy de sentimento de manufatura
-        "transformacao": "nivel",  # já é um índice de difusão centrado em 0
-        "frequencia": "mensal",
+        "category": "consumption",  # see doc note: manufacturing-sentiment proxy
+        "transformation": "level",  # already a diffusion index centered on 0
+        "frequency": "monthly",
     },
 }
 
 # ---------------------------------------------------------------------------
-# Camada de contexto — inflação e curva de juros (NÃO entram na média do
-# Módulo A; ver Seção 2.3 do documento de escopo para a regra completa)
+# Context layer — inflation and yield curve (do NOT enter the Module A
+# average; see Section 2.3 of the scope document for the full rule)
 # ---------------------------------------------------------------------------
-CONTEXTO_SERIES = {
-    "cpi": {"fred_id": "CPIAUCSL", "transformacao": "yoy", "frequencia": "mensal"},
-    "core_pce": {"fred_id": "PCEPILFE", "transformacao": "yoy", "frequencia": "mensal"},
-    "curva_10y2y": {"fred_id": "T10Y2Y", "transformacao": "nivel", "frequencia": "diaria"},
-    "curva_10y3m": {"fred_id": "T10Y3M", "transformacao": "nivel", "frequencia": "diaria"},
+CONTEXT_SERIES = {
+    "cpi": {"fred_id": "CPIAUCSL", "transformation": "yoy", "frequency": "monthly"},
+    "core_pce": {"fred_id": "PCEPILFE", "transformation": "yoy", "frequency": "monthly"},
+    "yield_curve_10y2y": {"fred_id": "T10Y2Y", "transformation": "level", "frequency": "daily"},
+    "yield_curve_10y3m": {"fred_id": "T10Y3M", "transformation": "level", "frequency": "daily"},
 }
 
 # ---------------------------------------------------------------------------
-# Módulo B — risk-on / risk-off (diário)
-# Separado em duas fontes porque vêm de bibliotecas Python diferentes:
-# FRED usa a biblioteca `fredapi`; os tickers de câmbio/commodity usam
-# `yfinance`, porque não existem no FRED.
+# Module B — risk-on / risk-off (daily)
+# Split into two sources because they come from different Python libraries:
+# FRED uses the `fredapi` library; the FX/commodity tickers use `yfinance`,
+# since they don't exist on FRED.
 # ---------------------------------------------------------------------------
-MODULO_B_FRED_SERIES = {
-    "vix": {"fred_id": "VIXCLS", "inverter_sinal": True},
-    # ATUALIZAÇÃO (achado testando com dados reais): a série original do
-    # documento, BAMLH0A0HYM2 (spread de high yield do ICE BofA), tem uma
-    # restrição de licenciamento no FRED — a API só devolve os últimos 3
-    # anos, mesmo pedindo histórico desde 1990 (o site mostra tudo, a API
-    # não). Trocamos para BAA10Y (spread de crédito Baa da Moody's, dado
-    # público sem essa restrição, com histórico desde 1986) — mede a
-    # mesma ideia (prêmio de risco de crédito), só que com um universo de
-    # rating um pouco mais alto (Baa é "investment grade" baixo, não
-    # "high yield" propriamente). Vale mencionar essa troca numa
-    # entrevista: é um exemplo real de limitação de fonte de dados
-    # descoberta e contornada, não só teoria.
-    "credit_spread_hy": {"fred_id": "BAA10Y", "inverter_sinal": True},
-    "jpy_usd": {"fred_id": "DEXJPUS", "inverter_sinal": True},
-    "treasury_10y": {"fred_id": "DGS10", "inverter_sinal": True},
+MODULE_B_FRED_SERIES = {
+    "vix": {"fred_id": "VIXCLS", "invert_sign": True},
+    # UPDATE (found while testing with real data): the series originally in
+    # the document, BAMLH0A0HYM2 (ICE BofA high-yield spread), has a
+    # licensing restriction on FRED — the API only returns the last 3
+    # years, even when requesting history back to 1990 (the website shows
+    # everything, the API doesn't). Swapped for BAA10Y (Moody's Baa credit
+    # spread, public data with no such restriction, history back to 1986)
+    # — it measures the same idea (credit risk premium), just over a
+    # slightly higher-rated universe (Baa is low investment-grade, not
+    # properly "high yield"). Worth mentioning in an interview: it's a
+    # real example of a discovered and worked-around data-source
+    # limitation, not just theory.
+    "credit_spread": {"fred_id": "BAA10Y", "invert_sign": True},
+    "jpy_usd": {"fred_id": "DEXJPUS", "invert_sign": True},
+    "treasury_10y": {"fred_id": "DGS10", "invert_sign": True},
 }
 
-MODULO_B_YAHOO_TICKERS = {
-    "aud_jpy": {"ticker": "AUDJPY=X", "inverter_sinal": False},
-    "ouro": {"ticker": "GC=F", "inverter_sinal": False, "peso": 0.5},
+MODULE_B_YAHOO_TICKERS = {
+    "aud_jpy": {"ticker": "AUDJPY=X", "invert_sign": False},
+    "gold": {"ticker": "GC=F", "invert_sign": False, "weight": 0.5},
 }
 
 # ---------------------------------------------------------------------------
-# Parâmetros gerais
+# General parameters
 # ---------------------------------------------------------------------------
-DATA_INICIO = "1990-01-01"  # janela ampla o suficiente para cobrir 2001, 2008 e 2020
-JANELA_ZSCORE_MODULO_A_MESES = 120  # 10 anos — ver Seção 2.2 do documento
-JANELA_ZSCORE_MODULO_B_DIAS = 504  # ~2 anos úteis — ver Seção 3.2 do documento
+START_DATE = "1990-01-01"  # wide enough to cover 2001, 2008 and 2020
+MODULE_A_ZSCORE_WINDOW_MONTHS = 120  # 10 years — see Section 2.2 of the document
+MODULE_B_ZSCORE_WINDOW_DAYS = 504  # ~2 trading years — see Section 3.2 of the document

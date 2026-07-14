@@ -1,17 +1,16 @@
 """
-Funções de ingestão de dados — Fase 1.
+Data ingestion functions — Phase 1.
 
-Este módulo não faz nenhum cálculo de score. Ele sabe fazer só uma coisa:
-buscar dados brutos nas fontes (FRED e Yahoo Finance) e devolver como
-pandas Series/DataFrame, prontos para os módulos que ainda vamos escrever
-(transformação em z-score, classificação de regime, etc.) usarem.
+This module doesn't do any score calculation. It knows how to do only one
+thing: fetch raw data from the sources (FRED and Yahoo Finance) and
+return it as pandas Series/DataFrames, ready for the modules that still
+need to use it (z-score transformation, regime classification, etc.).
 
-Por que separar "buscar dado" de "calcular coisa com o dado" em arquivos
-diferentes: isso se chama separação de responsabilidades (separation of
-concerns) — um princípio central de engenharia de software. Na prática
-significa que você pode trocar a fonte de um dado (ex: usar outra API no
-lugar do FRED) sem tocar em uma linha da lógica de cálculo, e pode testar
-cada parte isoladamente.
+Why separate "fetch data" from "calculate something with the data" into
+different files: this is called separation of concerns — a core software
+engineering principle. In practice it means you can swap a data source
+(e.g. use a different API instead of FRED) without touching a single
+line of calculation logic, and you can test each part in isolation.
 """
 
 import os
@@ -20,118 +19,122 @@ import pandas as pd
 import yfinance as yf
 from dotenv import load_dotenv
 
-# load_dotenv() lê o arquivo .env (se existir) e "injeta" as variáveis dele
-# no ambiente do processo Python — é como se você tivesse rodado
-# `export FRED_API_KEY=...` no terminal antes de chamar o script.
+# load_dotenv() reads the .env file (if it exists) and "injects" its
+# variables into the process environment — it's as if you had run
+# `export FRED_API_KEY=...` in the terminal before calling Python.
 load_dotenv()
 
 
 def _get_fred_client() -> Fred:
     """
-    Cria e devolve um cliente autenticado da API do FRED.
+    Creates and returns an authenticated FRED API client.
 
-    O underscore no início do nome (_get_fred_client) é uma convenção do
-    Python: sinaliza "isso é uso interno deste arquivo", não é pensado
-    para outras partes do código chamarem diretamente. Quem for usar
-    este módulo de fora deve chamar as funções fetch_* abaixo, não esta.
+    The leading underscore in the name (_get_fred_client) is a Python
+    convention: it signals "this is for internal use in this file", not
+    meant to be called directly by other parts of the code. Anyone using
+    this module from outside should call the fetch_* functions below,
+    not this one.
     """
     api_key = os.getenv("FRED_API_KEY")
     if not api_key:
         raise RuntimeError(
-            "FRED_API_KEY não encontrada nas variáveis de ambiente. "
-            "Copie .env.example para .env e cole sua chave gratuita "
-            "(instruções no README.md)."
+            "FRED_API_KEY not found in environment variables. "
+            "Copy .env.example to .env and paste your free key in "
+            "(instructions in README.md)."
         )
     return Fred(api_key=api_key)
 
 
 def fetch_fred_series(series_id: str, start_date: str = "1990-01-01") -> pd.Series:
     """
-    Busca uma única série de dados no FRED.
+    Fetches a single data series from FRED.
 
-    Parâmetros
+    Parameters
     ----------
     series_id : str
-        O identificador da série no FRED (ex: "INDPRO"). Os IDs usados
-        neste projeto estão documentados em src/config.py e no documento
-        de escopo técnico da Fase 1.
+        The series identifier on FRED (e.g. "INDPRO"). The IDs used in
+        this project are documented in src/config.py and in the Phase 1
+        technical scope document.
     start_date : str
-        Data mínima a considerar, formato "AAAA-MM-DD".
+        Minimum date to consider, "YYYY-MM-DD" format.
 
-    Retorna
+    Returns
     -------
     pandas.Series
-        Uma série indexada por data (o índice já vem como DatetimeIndex
-        do pandas — um tipo de índice "consciente de datas", que permite
-        fazer coisas como series.rolling("365D") mais tarde).
+        A series indexed by date (the index already comes as a pandas
+        DatetimeIndex — a "date-aware" index type, which lets you later
+        do things like series.rolling("365D")).
     """
     fred = _get_fred_client()
-    serie = fred.get_series(series_id, observation_start=start_date)
-    serie.name = series_id  # nomeia a série — útil quando juntarmos várias num DataFrame
-    return serie
+    series = fred.get_series(series_id, observation_start=start_date)
+    series.name = series_id  # names the series — useful when we merge several into a DataFrame
+    return series
 
 
-def fetch_varias_series_fred(series_dict: dict, start_date: str = "1990-01-01") -> pd.DataFrame:
+def fetch_multiple_fred_series(series_dict: dict, start_date: str = "1990-01-01") -> pd.DataFrame:
     """
-    Busca várias séries do FRED de uma vez e junta tudo num único DataFrame.
+    Fetches several FRED series at once and merges everything into a
+    single DataFrame.
 
-    Parâmetros
+    Parameters
     ----------
     series_dict : dict
-        Um dicionário no formato de MODULO_A_SERIES, CONTEXTO_SERIES ou
-        MODULO_B_FRED_SERIES (ver src/config.py) — a chave é um nome
-        legível (ex: "producao_industrial"), o valor é um dicionário com
-        pelo menos a chave "fred_id".
+        A dict in the format of MODULE_A_SERIES, CONTEXT_SERIES or
+        MODULE_B_FRED_SERIES (see src/config.py) — the key is a readable
+        name (e.g. "industrial_production"), the value is a dict with at
+        least the "fred_id" key.
 
-    Retorna
+    Returns
     -------
     pandas.DataFrame
-        Um DataFrame com uma coluna por indicador, usando o nome legível
-        como nome da coluna. Séries com frequências diferentes (ex: uma
-        mensal e outra semanal) ficam alinhadas pelo mesmo índice de
-        datas automaticamente — o pandas preenche com NaN (vazio) os
-        dias em que uma série específica não tem observação. Isso é
-        esperado e será tratado na etapa de transformação, não aqui.
+        A DataFrame with one column per indicator, using the readable
+        name as the column name. Series with different frequencies (e.g.
+        one monthly and another weekly) end up aligned on the same date
+        index automatically — pandas fills the days a given series has
+        no observation with NaN (empty). This is expected and handled in
+        the transformation step, not here.
     """
-    colunas = {}
-    for nome_legivel, meta in series_dict.items():
-        colunas[nome_legivel] = fetch_fred_series(meta["fred_id"], start_date)
-    return pd.DataFrame(colunas)
+    columns = {}
+    for readable_name, meta in series_dict.items():
+        columns[readable_name] = fetch_fred_series(meta["fred_id"], start_date)
+    return pd.DataFrame(columns)
 
 
-def fetch_varios_tickers_yahoo(tickers_dict: dict, start_date: str = "1990-01-01") -> pd.DataFrame:
+def fetch_multiple_yahoo_tickers(tickers_dict: dict, start_date: str = "1990-01-01") -> pd.DataFrame:
     """
-    Busca vários tickers do Yahoo Finance (câmbio, ouro) de uma vez.
+    Fetches several Yahoo Finance tickers at once (FX, commodities).
 
-    Parâmetros
+    Parameters
     ----------
     tickers_dict : dict
-        Um dicionário no formato de MODULO_B_YAHOO_TICKERS (ver
-        src/config.py) — a chave é um nome legível, o valor tem a chave
-        "ticker" com o símbolo real do Yahoo Finance (ex: "AUDJPY=X").
+        A dict in the format of MODULE_B_YAHOO_TICKERS (see
+        src/config.py) — the key is a readable name, the value has a
+        "ticker" key with the real Yahoo Finance symbol (e.g.
+        "AUDJPY=X").
 
-    Retorna
+    Returns
     -------
     pandas.DataFrame
-        Um DataFrame com uma coluna por ticker, usando o preço de
-        fechamento ajustado ("Close"). Diferente do FRED, o yfinance
-        devolve várias colunas por ticker (Open, High, Low, Close,
-        Volume) — por isso a função extrai só a coluna "Close" de cada
-        um antes de juntar.
+        A DataFrame with one column per ticker, using the adjusted
+        closing price ("Close"). Unlike FRED, yfinance returns several
+        columns per ticker (Open, High, Low, Close, Volume) — that's why
+        the function extracts only the "Close" column from each before
+        merging.
     """
-    colunas = {}
-    for nome_legivel, meta in tickers_dict.items():
-        dados = yf.download(meta["ticker"], start=start_date, progress=False)
-        fechamento = dados["Close"]
+    columns = {}
+    for readable_name, meta in tickers_dict.items():
+        data = yf.download(meta["ticker"], start=start_date, progress=False)
+        close = data["Close"]
 
-        # Versões recentes do yfinance às vezes devolvem as colunas em
-        # dois níveis (MultiIndex: preço + ticker) mesmo pedindo um único
-        # ticker — nesse caso, dados["Close"] vem como um DataFrame de
-        # uma coluna só, em vez de uma Series. `.squeeze("columns")`
-        # "achata" isso para Series quando há exatamente uma coluna, sem
-        # alterar nada se já vier como Series (comportamento antigo).
-        if isinstance(fechamento, pd.DataFrame):
-            fechamento = fechamento.squeeze("columns")
+        # Recent yfinance versions sometimes return columns with two
+        # levels (MultiIndex: price x ticker) even when requesting a
+        # single ticker — in that case data["Close"] comes back as a
+        # one-column DataFrame instead of a Series. `.squeeze("columns")`
+        # "flattens" this to a Series when there's exactly one column,
+        # without changing anything if it already came as a Series (old
+        # behavior).
+        if isinstance(close, pd.DataFrame):
+            close = close.squeeze("columns")
 
-        colunas[nome_legivel] = fechamento
-    return pd.DataFrame(colunas)
+        columns[readable_name] = close
+    return pd.DataFrame(columns)

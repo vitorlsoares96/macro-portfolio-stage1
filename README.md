@@ -1,166 +1,168 @@
-# Portfólio de Macro & Quant — Fase 1
+# Macro & Quant Portfolio — Phase 1
 
-**Nowcasting de ciclo econômico (EUA) + score de risk-on/risk-off de mercado, combinados numa matriz de ação única.**
+**US economic cycle nowcasting + market risk-on/risk-off score, combined into a single action matrix.**
 
-Este é o primeiro dos três módulos de um projeto de portfólio (Fase 1 —
-nowcasting; Fase 2 — alocação sistemática + backtest; Fase 3 — VaR/stress
-test), construído para transição de carreira para finanças/macro. O
-racional completo de cada decisão de design está formalizado em
-[`Fase1_Escopo_Tecnico_Nowcasting_RiskOnOff.md`](Fase1_Escopo_Tecnico_Nowcasting_RiskOnOff.md);
-este README resume o "porquê" de cada peça e documenta os problemas reais
-encontrados construindo o pipeline — a parte que normalmente não aparece
-num tutorial.
+This is the first of three modules of a portfolio project (Phase 1 —
+nowcasting; Phase 2 — systematic allocation + backtest; Phase 3 —
+VaR/stress test), built for a career transition into finance/macro. The
+full rationale behind every design decision is formalized in
+[`Phase1_Technical_Scope_Nowcasting_RiskOnOff.md`](Phase1_Technical_Scope_Nowcasting_RiskOnOff.md);
+this README summarizes the "why" of each piece and documents the real
+problems found while building the pipeline — the part that usually
+doesn't show up in a tutorial.
 
-## Quer só ver o resultado, sem instalar nada?
+## Just want to see the result, without installing anything?
 
-O arquivo [`src/fase1_dashboard.xlsx`](src/fase1_dashboard.xlsx) é um
-instantâneo já pronto do pipeline — dá pra baixar e abrir direto no
-Excel, sem precisar de Python, chave de API nem nenhuma instalação. Ele
-é atualizado manualmente de vez em quando (não em tempo real), então os
-dados podem estar alguns dias ou semanas defasados — pra saber
-exatamente quando foi a última atualização, clica em "History" na
-página do arquivo no GitHub, que mostra a data do commit mais recente
-que o alterou. Se quiser os dados de hoje mesmo, veja "Como rodar"
-abaixo.
+The file [`src/phase1_dashboard.xlsx`](src/phase1_dashboard.xlsx) is a
+ready-made snapshot of the pipeline — you can download it and open it
+directly in Excel, with no need for Python, an API key, or any
+installation. It's updated manually every once in a while (not in real
+time), so the data may be a few days or weeks stale — to know exactly
+when it was last updated, click "History" on the file's page on GitHub,
+which shows the date of the most recent commit that changed it. If you
+want today's actual data, see "How to run" below.
 
-## O que o projeto faz
+## What the project does
 
-Dois módulos independentes, cada um respondendo uma pergunta diferente:
+Two independent modules, each answering a different question:
 
-- **Módulo A — em que fase do ciclo econômico os EUA estão?** Classifica
-  o momento em 4 regimes (Expansão / Recuperação / Desaceleração /
-  Contração), usando indicadores mensais de atividade (produção,
-  emprego, consumo), com uma camada extra de contexto (inflação e curva
-  de juros) que qualifica — mas não altera — essa classificação.
-- **Módulo B — o mercado está com apetite a risco ou defensivo, agora?**
-  Um score diário de -2 a +2, combinando 6 indicadores de risco de
-  mercado (volatilidade, crédito, câmbio, juros, ouro).
+- **Module A — what phase of the economic cycle is the US in?**
+  Classifies the current moment into 4 regimes (Expansion / Recovery /
+  Slowdown / Contraction), using monthly activity indicators (production,
+  employment, consumption), with an extra context layer (inflation and
+  the yield curve) that qualifies — but doesn't alter — that
+  classification.
+- **Module B — is the market risk-hungry or defensive, right now?** A
+  daily score from -2 to +2, combining 6 market risk indicators
+  (volatility, credit, FX, rates, gold).
 
-Os dois são cruzados numa **matriz 4×3 de 12 ações recomendadas** — o
-regime dá a visão estratégica (onde estamos no ciclo), o risco tático dá
-o timing (o mercado já está precificando isso?).
+The two are crossed into a **4×3 matrix of 12 recommended actions** — the
+regime gives the strategic view (where we are in the cycle), the tactical
+risk gives the timing (is the market already pricing this in?).
 
-## Metodologia — resumo das decisões de design
+## Methodology — summary of design decisions
 
-Cobertura completa na Seção 1–4 do documento de escopo; aqui vai o
-resumo de cada "porquê":
+Full coverage is in Sections 1–4 of the scope document; here's the
+summary of each "why":
 
-**Por que separar atividade econômica (Módulo A) de preço de mercado
-(Módulo B) em vez de um score único?** Porque respondem perguntas
-diferentes e podem discordar de propósito — ex: ciclo em Contração mas
-mercado já Risk-on precificando recuperação (célula "bear market rally"
-da matriz). Misturar os dois num único número esconderia exatamente esse
-tipo de sinal.
+**Why separate economic activity (Module A) from market pricing (Module
+B) instead of a single score?** Because they answer different questions
+and can disagree on purpose — e.g. cycle in Contraction but the market
+already Risk-on, pricing in a recovery (the "bear market rally" cell of
+the matrix). Mixing the two into a single number would hide exactly this
+kind of signal.
 
-**Por que nível × momentum em vez de só nível?** Nível (score acima ou
-abaixo da média histórica) sozinho não distingue "expansão perdendo
-força" de "contração ganhando força" — dois momentos com prognósticos
-opostos que teriam o mesmo score de nível. Cruzar nível com momentum
-(direção do score suavizado nos últimos 3 meses) resolve isso com uma
-tabela 2×2.
+**Why level × momentum instead of just level?** Level alone (score above
+or below the historical average) doesn't distinguish "expansion losing
+steam" from "contraction gaining steam" — two moments with opposite
+outlooks that would have the same level score. Crossing level with
+momentum (direction of the smoothed score over the last 3 months) solves
+this with a 2×2 table.
 
-**Por que a camada de contexto (inflação, curva de juros) fica fora da
-média do regime?** Inflação e curva de juros são úteis para *qualificar*
-o regime (ex: "expansão com inflação acelerando" é mais frágil que
-"expansão com inflação caindo"), mas não são medidas de atividade — jogá-
-las na mesma média dos indicadores de produção/emprego/consumo
-misturaria "quanto a economia está crescendo" com "quão sustentável isso
-é", duas perguntas diferentes.
+**Why does the context layer (inflation, yield curve) stay outside the
+regime average?** Inflation and the yield curve are useful to *qualify*
+the regime (e.g. "expansion with accelerating inflation" is more fragile
+than "expansion with falling inflation"), but they aren't activity
+measures — throwing them into the same average as the production/
+employment/consumption indicators would mix "how much the economy is
+growing" with "how sustainable that is", two different questions.
 
-**Por que z-score com janela móvel (trailing), nunca centrada?** Qualquer
-padronização que "olhe para o futuro" (janela centrada, ou calculada com
-o histórico completo de uma vez) introduz look-ahead bias — o modelo
-teria informação em 2015 que só existiu porque sabemos o que aconteceu
-em 2020. Todo o pipeline usa `.rolling()` trailing, propositalmente.
+**Why a trailing rolling-window z-score, never centered?** Any
+standardization that "looks into the future" (a centered window, or one
+computed from the full history at once) introduces look-ahead bias — the
+model would have information in 2015 that only existed because we know
+what happened in 2020. The entire pipeline deliberately uses a trailing
+`.rolling()`.
 
-**Por que o Módulo B usa filtro de persistência (5 dias)?** Sem isso, um
-único dia de dado ruidoso (não um choque real) poderia fazer a leitura
-tática "piscar" entre risk-on e risk-off, gerando ruído que ninguém
-seguiria na prática. O filtro só confirma uma mudança de lado depois do
-sinal se manter no mesmo sentido por 5 dias úteis seguidos.
+**Why does Module B use a persistence filter (5 days)?** Without it, a
+single day of noisy data (not a real shock) could make the tactical
+reading "flicker" between risk-on and risk-off, generating noise nobody
+would actually follow. The filter only confirms a side change after the
+signal has held in the same direction for 5 consecutive business days.
 
-**Por que pesos diferentes no Módulo B (ouro com peso 0,5)?** Ouro reage
-tanto a risk-off quanto a inflação — é um sinal "mais ruidoso" para essa
-finalidade específica que os outros 5 indicadores, por isso pesa menos
-na média em vez de ser excluído.
+**Why different weights in Module B (gold weighted at 0.5)?** Gold reacts
+both to risk-off and to inflation — it's a "noisier" signal for this
+specific purpose than the other 5 indicators, so it carries less weight
+in the average instead of being excluded.
 
-## Desafios técnicos reais (não teoria — coisas que quebraram e como foram resolvidas)
+## Real technical challenges (not theory — things that broke and how they were fixed)
 
-Esta seção existe de propósito: mostra o processo de construção, não só
-o resultado final.
+This section exists on purpose: it shows the building process, not just
+the final result.
 
-- **Restrição de licenciamento de dado descoberta em produção.** A série
-  original de spread de high-yield (`BAMLH0A0HYM2`, ICE BofA) só devolve
-  os últimos 3 anos pela API do FRED, mesmo pedindo histórico desde 1990
-  — uma restrição real de licenciamento do provedor, visível só ao
-  tentar puxar o dado (o site do FRED mostra o histórico completo, a API
-  não). Resolvido trocando para `BAA10Y` (spread de crédito Baa da
-  Moody's, sem essa restrição) e tornando o cálculo do composite
-  tolerante a indicadores com históricos de tamanhos diferentes.
-- **Bug de propagação de NaN no composite ponderado.** A primeira versão
-  somava as séries indicador a indicador com o operador `+` do pandas,
-  que propaga `NaN`: um único indicador sem dado numa data "contaminava"
-  o composite inteiro naquela data, mesmo com os outros 5 indicadores
-  válidos. Corrigido usando `DataFrame.sum(axis=1)` (que ignora `NaN` por
-  padrão) e renormalizando os pesos por linha, só com os indicadores
-  disponíveis naquele dia.
-- **`.resample("D").ffill()` vs `.reindex(..., method="ffill")`.** Ao
-  espalhar o regime mensal do Módulo A para o índice diário do Módulo B,
-  `.resample().ffill()` só preenche até a última data já existente na
-  série mensal — dias do mês corrente (antes do próximo dado mensal sair)
-  ficavam `NaN`. `.reindex()` continua preenchendo para frente
-  indefinidamente.
-- **Contador de meses de inversão de curva "zerando" no mês errado.** O
-  contador de meses consecutivos de curva invertida (via
-  `groupby().cumsum()`) reseta no mesmo mês em que a curva desinverte —
-  a mensagem de alerta usava esse valor já zerado, dizendo "desinverteu
-  após 0 meses". Corrigido usando o valor do contador do mês *anterior*
-  (`.shift(1)`) especificamente para essa mensagem.
-- **`yfinance` devolvendo `MultiIndex` mesmo para 1 ticker.** Versões
-  recentes às vezes retornam colunas em dois níveis (preço × ticker)
-  mesmo pedindo um único papel, quebrando a conversão para `Series`.
-  Corrigido com `.squeeze("columns")`.
-- **Bug de eixo num gráfico só descoberto visualmente.** Um gráfico de
-  dispersão (nível × momentum) estava lendo a coluna de datas como eixo
-  X em vez do score — o arquivo Excel era gerado sem nenhum erro, só o
-  gráfico ficava errado. Só foi encontrado renderizando o arquivo e
-  comparando visualmente (não um teste que se pega com asserts
-  numéricos). Reforça a lição: gráfico gerado por código também precisa
-  de inspeção visual, não só "rodou sem exception".
+- **Data licensing restriction discovered in production.** The original
+  high-yield spread series (`BAMLH0A0HYM2`, ICE BofA) only returns the
+  last 3 years through the FRED API, even when requesting history back
+  to 1990 — a real licensing restriction from the provider, visible only
+  when actually pulling the data (the FRED website shows the full
+  history, the API doesn't). Fixed by switching to `BAA10Y` (Moody's Baa
+  credit spread, without this restriction) and making the composite
+  calculation tolerant to indicators with histories of different
+  lengths.
+- **NaN-propagation bug in the weighted composite.** The first version
+  summed the indicator series one at a time with pandas' `+` operator,
+  which propagates `NaN`: a single indicator missing data on a given date
+  "contaminated" the entire composite for that date, even with the other
+  5 indicators valid. Fixed by using `DataFrame.sum(axis=1)` (which
+  ignores `NaN` by default) and renormalizing the weights per row, using
+  only the indicators available on that day.
+- **`.resample("D").ffill()` vs. `.reindex(..., method="ffill")`.** When
+  spreading Module A's monthly regime onto Module B's daily index,
+  `.resample().ffill()` only fills forward up to the last date already
+  present in the monthly series — days in the current month (before the
+  next monthly data point comes out) were left `NaN`. `.reindex()` keeps
+  filling forward indefinitely.
+- **Curve-inversion month counter "resetting" in the wrong month.** The
+  consecutive-months-inverted counter (via `groupby().cumsum()`) resets
+  in the same month the curve uninverts — the alert message used that
+  already-zeroed value, saying "uninverted after 0 months". Fixed by
+  using the counter's value from the *previous* month (`.shift(1)`)
+  specifically for that message.
+- **`yfinance` returning a `MultiIndex` even for 1 ticker.** Recent
+  versions sometimes return two-level columns (price × ticker) even when
+  requesting a single symbol, breaking the conversion to `Series`. Fixed
+  with `.squeeze("columns")`.
+- **A chart axis bug only found visually.** A scatter chart (level ×
+  momentum) was reading the date column as the X axis instead of the
+  score — the Excel file was generated with no errors, only the chart
+  came out wrong. It was only found by rendering the file and comparing
+  it visually (not a test caught by numeric asserts). Reinforces the
+  lesson: a code-generated chart also needs visual inspection, not just
+  "ran without an exception".
 
-## Estrutura do projeto
+## Project structure
 
 ```
 macro_portfolio/
-├── Fase1_Escopo_Tecnico_Nowcasting_RiskOnOff.md   # racional completo de cada decisão
-├── README.md                                       # este arquivo
+├── Phase1_Technical_Scope_Nowcasting_RiskOnOff.md   # full rationale behind every decision
+├── README.md                                         # this file
 ├── requirements.txt
-├── .env.example            # modelo do arquivo de credenciais (copiar para .env)
-├── .gitignore               # garante que .env nunca vai para o GitHub
+├── .env.example            # credentials file template (copy to .env)
+├── .gitignore               # ensures .env never goes to GitHub
 ├── src/
-│   ├── config.py             # todas as séries/tickers usados, num só lugar
-│   ├── data_ingestion.py     # busca dados brutos no FRED e Yahoo Finance
-│   ├── transformacao.py      # Módulo A: z-score, agregação, regime
-│   ├── contexto.py           # camada de inflação + curva de juros
-│   ├── modulo_b.py           # Módulo B: composite, discretização, persistência
-│   ├── matriz.py             # cruza os dois módulos na matriz de ação
-│   ├── exportar_excel.py     # exporta os 3 resultados para um .xlsx
-│   ├── dashboard.py          # aba extra no Excel com gráficos/heatmap (opcional)
-│   └── testar_*.py           # um script de teste por módulo, cada um com
-│                              # checagem de sanidade contra evento histórico real
-└── diagrama/
-    └── gerar_diagrama.py     # gera diagrama_fase1.html — mapa visual do
-                                # pipeline completo (indicador → ação)
+│   ├── config.py             # every series/ticker used, in one place
+│   ├── data_ingestion.py     # fetches raw data from FRED and Yahoo Finance
+│   ├── transformation.py     # Module A: z-score, aggregation, regime
+│   ├── context.py            # inflation + yield curve layer
+│   ├── module_b.py           # Module B: composite, discretization, persistence
+│   ├── matrix.py              # crosses both modules into the action matrix
+│   ├── export_excel.py       # exports the 3 results to a .xlsx
+│   ├── dashboard.py          # extra Excel tab with charts/heatmap (optional)
+│   └── test_*.py             # one test script per module, each with a
+│                              # sanity check against a real historical event
+└── diagram/
+    └── generate_diagram.py   # generates diagram_phase1.html — a visual map
+                                # of the full pipeline (indicator → action)
 ```
 
-## Como rodar
+## How to run
 
-### 1. Pré-requisitos
+### 1. Prerequisites
 
 - Python 3.10+
-- Chave de API gratuita do FRED: https://fredaccount.stlouisfed.org/apikeys
+- Free FRED API key: https://fredaccount.stlouisfed.org/apikeys
 
-### 2. Ambiente virtual
+### 2. Virtual environment
 
 ```bash
 python -m venv venv
@@ -171,86 +173,84 @@ venv\Scripts\activate
 source venv/bin/activate
 ```
 
-### 3. Instalar dependências
+### 3. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Configurar a chave
+### 4. Configure the key
 
 ```bash
 cp .env.example .env
 ```
 
-Depois edite `.env` e cole a chave gerada no passo 1.
+Then edit `.env` and paste in the key you generated in step 1.
 
-### 5. Validar o pipeline, módulo por módulo
+### 5. Validate the pipeline, module by module
 
 ```bash
 cd src
-python testar_ingestao.py       # confirma que os dados brutos chegam
-python testar_transformacao.py  # Módulo A — checa contra Covid e 2021
-python testar_contexto.py       # checa contra o ciclo de alta de juros 2022-23
-python testar_modulo_b.py       # Módulo B — checa contra Covid
-python testar_matriz.py         # matriz combinada — leitura atual + Covid
+python test_ingestion.py       # confirms the raw data comes through
+python test_transformation.py  # Module A — checks against Covid and 2021
+python test_context.py         # checks against the 2022-23 rate-hike cycle
+python test_module_b.py        # Module B — checks against Covid
+python test_matrix.py          # combined matrix — current reading + Covid
 ```
 
-### 6. Gerar o Excel e o diagrama
+### 6. Generate the Excel file and the diagram
 
 ```bash
-python exportar_excel.py                 # gera fase1_dashboard.xlsx (3 abas de dados)
-cd ../diagrama
-python gerar_diagrama.py                 # gera diagrama_fase1.html
+python export_excel.py                 # generates phase1_dashboard.xlsx (3 data tabs)
+cd ../diagram
+python generate_diagram.py               # generates diagram_phase1.html
 ```
 
-O `diagrama_fase1.html` é autocontido — abre em qualquer navegador, sem
-precisar rodar nada. É o material mais fácil de mostrar numa entrevista:
-mapeia visualmente os 12 indicadores brutos até as 12 ações finais da
-matriz.
+`diagram_phase1.html` is self-contained — it opens in any browser, no
+need to run anything. It's the easiest material to show in an interview:
+it visually maps the 12 raw indicators all the way to the 12 final
+actions of the matrix.
 
-### 7. Atualizar o instantâneo publicado no GitHub
+### 7. Update the snapshot published on GitHub
 
-O `src/fase1_dashboard.xlsx` do repositório (ver seção acima) só se
-atualiza quando alguém gera um novo e o envia manualmente. Depois de
-rodar o passo 6 de novo, para publicar a versão nova:
+The repository's `src/phase1_dashboard.xlsx` (see section above) only
+updates when someone generates a new one and pushes it manually. After
+running step 6 again, to publish the new version:
 
 ```bash
-git add src/fase1_dashboard.xlsx
-git commit -m "Atualiza snapshot do Excel"
+git add src/phase1_dashboard.xlsx
+git commit -m "Update Excel snapshot"
 git push
 ```
 
-## Problemas comuns
+## Common issues
 
-- `RuntimeError: FRED_API_KEY não encontrada` → confira se o arquivo se
-  chama exatamente `.env` (não `.env.txt` — alguns editores adicionam essa
-  extensão sem avisar) e se ele está na raiz do projeto (não dentro de `src/`).
-- `ModuleNotFoundError` → o ambiente virtual não foi ativado antes de
-  rodar o script, ou o `pip install -r requirements.txt` não terminou
-  sem erros — role para cima no terminal e veja se alguma instalação falhou.
-- Erro vindo do `yfinance` (`Close` não encontrado, ou dados vazios) →
-  às vezes o Yahoo Finance limita requisições repetidas em pouco tempo;
-  espere um minuto e tente de novo.
+- `RuntimeError: FRED_API_KEY not found` → check that the file is named
+  exactly `.env` (not `.env.txt` — some editors add that extension
+  without warning) and that it's at the project root (not inside `src/`).
+- `ModuleNotFoundError` → the virtual environment wasn't activated before
+  running the script, or `pip install -r requirements.txt` didn't finish
+  without errors — scroll up in the terminal and check whether any
+  install failed.
+- Error coming from `yfinance` (`Close` not found, or empty data) →
+  sometimes Yahoo Finance rate-limits repeated requests in a short
+  period; wait a minute and try again.
 
-## Limitações conhecidas
+## Known limitations
 
-- A camada de contexto (inflação) fica sem leitura nos meses mais
-  recentes por defasagem real de publicação do CPI/Core PCE (~1 mês de
-  atraso) — não é um bug, é a natureza do dado.
-- O pipeline busca dado ao vivo da API a cada execução (não há cache
-  local em disco ainda) — cada rodada depende de FRED e Yahoo Finance
-  estarem no ar.
-- O peso de cada indicador (Módulo A e B) foi definido por julgamento
-  qualitativo documentado no escopo técnico, não otimizado
-  estatisticamente — é uma escolha consciente para a Fase 1 (evitar
-  overfitting num framework que ainda não tem dados de retorno para
-  validar contra).
+- The context layer (inflation) has no reading for the most recent
+  months due to real publication lag of CPI/Core PCE (~1 month delay) —
+  it's not a bug, it's the nature of the data.
+- The pipeline fetches live data from the API on every run (no local disk
+  cache yet) — every run depends on FRED and Yahoo Finance being up.
+- The weight of each indicator (Module A and B) was set by documented
+  qualitative judgment in the technical scope, not statistically
+  optimized — a deliberate choice for Phase 1 (avoiding overfitting a
+  framework that doesn't yet have return data to validate against).
 
-## Próximos passos
+## Next steps
 
-Fase 2: transformar a leitura da matriz (regime + risco) numa regra de
-alocação sistemática entre classes de ativos, e rodar um backtest
-histórico para medir se essas 12 ações realmente teriam adicionado valor
-desde 1990. Fase 3: framework de VaR / stress test sobre a carteira
-resultante.
+Phase 2: turn the matrix reading (regime + risk) into a systematic
+asset-class allocation rule, and run a historical backtest to measure
+whether these 12 actions would actually have added value since 1990.
+Phase 3: VaR / stress-test framework on the resulting portfolio.
