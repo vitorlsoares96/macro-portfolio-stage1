@@ -11,6 +11,18 @@ este README resume o "porquê" de cada peça e documenta os problemas reais
 encontrados construindo o pipeline — a parte que normalmente não aparece
 num tutorial.
 
+## Quer só ver o resultado, sem instalar nada?
+
+O arquivo [`src/fase1_dashboard.xlsx`](src/fase1_dashboard.xlsx) é um
+instantâneo já pronto do pipeline — dá pra baixar e abrir direto no
+Excel, sem precisar de Python, chave de API nem nenhuma instalação. Ele
+é atualizado manualmente de vez em quando (não em tempo real), então os
+dados podem estar alguns dias ou semanas defasados — pra saber
+exatamente quando foi a última atualização, clica em "History" na
+página do arquivo no GitHub, que mostra a data do commit mais recente
+que o alterou. Se quiser os dados de hoje mesmo, veja "Como rodar"
+abaixo.
+
 ## O que o projeto faz
 
 Dois módulos independentes, cada um respondendo uma pergunta diferente:
@@ -196,6 +208,18 @@ O `diagrama_fase1.html` é autocontido — abre em qualquer navegador, sem
 precisar rodar nada. É o material mais fácil de mostrar numa entrevista:
 mapeia visualmente os 12 indicadores brutos até as 12 ações finais da
 matriz.
+
+### 7. Atualizar o instantâneo publicado no GitHub
+
+O `src/fase1_dashboard.xlsx` do repositório (ver seção acima) só se
+atualiza quando alguém gera um novo e o envia manualmente. Depois de
+rodar o passo 6 de novo, para publicar a versão nova:
+
+```bash
+git add src/fase1_dashboard.xlsx
+git commit -m "Atualiza snapshot do Excel"
+git push
+```
 
 ## Problemas comuns
 
