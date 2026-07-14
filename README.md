@@ -166,12 +166,28 @@ macro_portfolio/
 
 ```bash
 python -m venv venv
+```
 
-# Windows:
+Activate it — the exact command depends on which terminal you're using:
+
+```bash
+# Git Bash on Windows (what this project's instructions assume):
+source venv/Scripts/activate
+
+# PowerShell or Command Prompt (cmd.exe) on Windows:
 venv\Scripts\activate
-# Mac/Linux:
+
+# Mac/Linux (any terminal):
 source venv/bin/activate
 ```
+
+Note the difference between the first two: Git Bash simulates a Linux-style
+shell even on Windows, so it uses forward slashes and needs `source` in
+front (the script needs to be "loaded into" the current terminal, not run
+as a separate program). PowerShell/cmd.exe use Windows' native backslash
+paths and don't need `source`. Mixing the two (e.g. running
+`venv\Scripts\activate` inside Git Bash) will fail, since Git Bash reads
+backslashes as an escape character, not a path separator.
 
 ### 3. Install dependencies
 
