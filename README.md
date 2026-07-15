@@ -129,6 +129,36 @@ the final result.
   it visually (not a test caught by numeric asserts). Reinforces the
   lesson: a code-generated chart also needs visual inspection, not just
   "ran without an exception".
+- **Two Module B indicators had their sign inverted backwards.**
+  `treasury_10y` and `jpy_usd` were both configured with `invert_sign=True`,
+  but neither needed inverting — both already move in the "risk-on = rises"
+  direction on their own (falling yields and a strengthening yen are both
+  flight-to-quality/haven behavior, i.e. risk-off, which a raw z-score
+  already represents as negative). The bug was silent: the composite still
+  correctly classified March 2020 as extreme risk-off, because the other 4
+  indicators outweighed the two wrong-signed ones — nothing crashed, no
+  test failed, the output just looked "good enough" while being partly
+  wrong underneath. Found by isolating each indicator's individual z-score
+  (before vs. after inversion) against two independent, well-documented
+  crises (March 2020 and the Sept-Dec 2008 Lehman Brothers collapse) and
+  checking the sign made sense both times. `treasury_10y` was unambiguous
+  in both windows. `jpy_usd` was genuinely trickier: March 2020 alone was
+  ambiguous, because DEXJPUS had a real, well-documented anomaly during the
+  "dash for cash" (Mar 9-24, 2020 — a global USD funding squeeze that made
+  the dollar spike against nearly everything, including JPY, temporarily
+  breaking the usual safe-haven relationship). Checked against 2008
+  instead, where no such funding squeeze distorted the currency, the raw
+  series behaved exactly as the textbook haven-currency story predicts for
+  the entire ~4-month window — that second, cleaner data point is what
+  settled it. Fixing both made the March 2020 signal both earlier (the
+  model now confirms extreme risk-off by Feb 27 instead of Mar 13) and more
+  stable (it no longer briefly weakens back to a milder reading in early
+  April). Lesson: a composite of several indicators can mask an individual
+  sign error well enough that nothing about the final output looks broken
+  — worth periodically checking each input indicator in isolation, not
+  just the combined result, especially when a design decision (like a sign
+  convention) is based on an assumption about how a market "usually"
+  behaves.
 
 ## Project structure
 

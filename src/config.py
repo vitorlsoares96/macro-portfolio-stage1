@@ -94,8 +94,32 @@ MODULE_B_FRED_SERIES = {
     # real example of a discovered and worked-around data-source
     # limitation, not just theory.
     "credit_spread": {"fred_id": "BAA10Y", "invert_sign": True},
-    "jpy_usd": {"fred_id": "DEXJPUS", "invert_sign": True},
-    "treasury_10y": {"fred_id": "DGS10", "invert_sign": True},
+    # FIXED (found the same way as treasury_10y below): this was previously
+    # invert_sign=True, which is backwards. Checked against two independent
+    # crises before concluding this — March 2020 alone was ambiguous, because
+    # DEXJPUS had a real, well-documented anomaly during the "dash for cash"
+    # (Mar 9-24, 2020: a global USD funding squeeze made the dollar spike
+    # against nearly everything, including JPY, temporarily flipping the
+    # classic haven-currency relationship). But checked against 2008 (Aug-Dec,
+    # the Lehman Brothers collapse), the raw (uninverted) series behaved
+    # exactly as the textbook story predicts — consistently negative
+    # (yen strengthening = risk-off) for the entire ~4-month window, no
+    # reversal. Two independent crises agreeing (one of them cleanly, with
+    # no exception) was enough evidence to fix this one too.
+    "jpy_usd": {"fred_id": "DEXJPUS", "invert_sign": False},
+    # FIXED (found while diagnosing individual indicator signs against
+    # March 2020): this was previously invert_sign=True, which is backwards.
+    # DGS10 fell steadily and unambiguously throughout March 2020 (the
+    # cleanest flight-to-quality signal of all 6 indicators, bottoming at
+    # an all-time low on March 9) — its raw (uninverted) z-score is already
+    # negative during risk-off, exactly matching this project's convention
+    # (positive z-score = risk-on). Inverting it made the pipeline read
+    # "risk-on" throughout the most extreme risk-off event in the sample
+    # period. The composite still classified March 2020 correctly as
+    # extreme risk-off despite this, because the other 5 indicators
+    # (especially VIX and the credit spread) outweighed the error — but
+    # that's not guaranteed in every period, hence the fix.
+    "treasury_10y": {"fred_id": "DGS10", "invert_sign": False},
 }
 
 MODULE_B_YAHOO_TICKERS = {
