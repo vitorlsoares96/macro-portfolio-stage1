@@ -8,3 +8,12 @@ __pycache__/
 # Virtual environment, in case you create one locally
 venv/
 .venv/
+
+# Microsoft Office lock files — created automatically while a file is open
+# (e.g. "~$phase1_dashboard.xlsx"), and disappear on their own once you
+# close it. Never meant to be committed.
+~$*
+
+# One-off scratch/diagnostic scripts used while debugging — not part of
+# the maintained pipeline, kept locally only.
+src/diagnose_signs.py
